@@ -26,7 +26,7 @@ flowchart TD
     SMB["SMB"]
     FTP["FTP"]
     S3["S3"]
-    AzureGCS["Azure / GCS"]
+    AzureGCS["Azure/GCS"]
 
     Camera <-->|poll| Client
     Client --> Poller
