@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -12,6 +13,8 @@ import (
 	"github.com/pacorreia/canon-proxy/internal/canon"
 	"github.com/pacorreia/canon-proxy/internal/config"
 	"github.com/pacorreia/canon-proxy/internal/pipeline"
+	"github.com/pacorreia/canon-proxy/internal/store"
+	"github.com/pacorreia/canon-proxy/internal/web"
 )
 
 func main() {
@@ -39,12 +42,28 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log.Printf("level=info msg=\"starting canon proxy\" backend=%q upload_workers=%d", uploadBackend.Name(), cfg.Upload.Workers)
+	log.Printf("level=info msg=\"starting canon proxy\" backend=%q upload_workers=%d mode=%q",
+		uploadBackend.Name(), cfg.Upload.Workers, cfg.Web.Mode)
 
-	p := pipeline.New(client, poller, uploadBackend, cfg.Upload.Workers)
+	cameraBase := fmt.Sprintf("http://%s:%d", cfg.Camera.Host, cfg.Camera.Port)
+
+	var p *pipeline.Pipeline
+
+	if cfg.Web.Mode == "manual" {
+		st := store.New()
+		p = pipeline.NewManual(client, poller, uploadBackend, cfg.Upload.Workers, st)
+		srv := web.New(st, cameraBase, p.Push, cfg.Web.Listen)
+		go srv.Start(ctx)
+	} else {
+		// auto mode: upload every detected image immediately; web UI is not started.
+		p = pipeline.New(client, poller, uploadBackend, cfg.Upload.Workers)
+	}
+
 	if err := p.Run(ctx); err != nil {
 		log.Fatalf("level=fatal msg=\"pipeline terminated with error\" err=%q", err)
 	}
 
 	log.Printf("level=info msg=\"canon proxy stopped\"")
 }
+
+
