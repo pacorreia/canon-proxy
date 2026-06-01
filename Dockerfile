@@ -5,7 +5,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/canon-proxy ./cmd/canon-proxy
 
-FROM alpine:3.19
+FROM alpine:3.23
 WORKDIR /app
 COPY --from=builder /out/canon-proxy ./canon-proxy
 COPY config.example.yaml ./config.yaml
