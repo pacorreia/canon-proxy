@@ -56,6 +56,9 @@ func (b *FTPBackend) Upload(ctx context.Context, filename string, r io.Reader) e
 			if err := conn.MakeDir(dir); err != nil {
 				return fmt.Errorf("create ftp directory %s: %w", dir, err)
 			}
+			if err := conn.ChangeDir(dir); err != nil {
+				return fmt.Errorf("change ftp directory %s after create: %w", dir, err)
+			}
 		}
 	}
 

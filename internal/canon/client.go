@@ -22,6 +22,8 @@ type Client struct {
 	httpClient *http.Client
 }
 
+const imageListPath = "/ccapi/ver100/contents/sd/100CANON"
+
 func NewClient(host string, port int) *Client {
 	return &Client{
 		baseURL: fmt.Sprintf("http://%s:%d", host, port),
@@ -32,7 +34,7 @@ func NewClient(host string, port int) *Client {
 }
 
 func (c *Client) ListImages(ctx context.Context) ([]Image, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/ccapi/ver100/contents/sd/100CANON", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+imageListPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build list request: %w", err)
 	}

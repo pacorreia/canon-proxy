@@ -34,7 +34,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log.Printf("level=info msg=\"starting canon proxy\" backend=%q workers=%d", uploadBackend.Name(), cfg.Camera.DownloadWorkers)
+	log.Printf("level=info msg=\"starting canon proxy\" backend=%q download_workers=%d", uploadBackend.Name(), cfg.Camera.DownloadWorkers)
 
 	p := pipeline.New(client, poller, uploadBackend, cfg.Camera.DownloadWorkers)
 	if err := p.Run(ctx); err != nil {
