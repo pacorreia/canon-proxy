@@ -1,0 +1,38 @@
+camera:
+  host: "192.168.1.100"
+  port: 8080
+  poll_interval: 5s
+
+upload:
+  workers: 4
+  backend: smb # smb | ftp | s3 | azure | gcs
+
+backends:
+  smb:
+    host: "192.168.1.10"
+    share: "photos"
+    username: "user"
+    password: "pass"
+    path: "/uploads"
+  ftp:
+    host: "ftp.example.com"
+    port: 21
+    username: "user"
+    password: "pass"
+    tls: false
+    path: "/uploads"
+  s3:
+    bucket: "my-bucket"
+    region: "eu-west-1"
+    prefix: "canon/"
+    access_key: ""
+    secret_key: ""
+  azure:
+    account: "mystorageaccount"
+    container: "photos"
+    prefix: "canon/"
+    sas_token: ""
+  gcs:
+    bucket: "my-bucket"
+    prefix: "canon/"
+    credentials_file: "/path/to/sa.json"
