@@ -30,6 +30,9 @@ func NewS3Backend(cfg config.S3Config) (*S3Backend, error) {
 
 	options := []func(*awsconfig.LoadOptions) error{awsconfig.WithRegion(cfg.Region)}
 	if cfg.AccessKey != "" || cfg.SecretKey != "" {
+		if cfg.AccessKey == "" || cfg.SecretKey == "" {
+			return nil, fmt.Errorf("s3 access_key and secret_key must both be set (or both empty)")
+		}
 		provider := credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "")
 		options = append(options, awsconfig.WithCredentialsProvider(provider))
 	}
