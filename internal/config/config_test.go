@@ -32,9 +32,6 @@ upload:
 	if cfg.Camera.PollInterval != 5*time.Second {
 		t.Fatalf("expected default poll interval 5s, got %s", cfg.Camera.PollInterval)
 	}
-	if cfg.Camera.DownloadWorkers != 4 {
-		t.Fatalf("expected default download workers 4, got %d", cfg.Camera.DownloadWorkers)
-	}
 	if cfg.Upload.Workers != 4 {
 		t.Fatalf("expected default upload workers 4, got %d", cfg.Upload.Workers)
 	}

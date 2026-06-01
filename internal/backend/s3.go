@@ -53,6 +53,8 @@ func (b *S3Backend) Name() string {
 	return "s3"
 }
 
+func (b *S3Backend) Close() error { return nil }
+
 func (b *S3Backend) Upload(ctx context.Context, filename string, r io.Reader) error {
 	key := path.Join(b.prefix, filename)
 

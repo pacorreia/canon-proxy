@@ -67,7 +67,6 @@ camera:
   host: "192.168.1.100"
   port: 8080
   poll_interval: 5s
-  download_workers: 4
 
 upload:
   workers: 4

@@ -30,13 +30,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("level=fatal msg=\"failed to initialize backend\" err=%q", err)
 	}
+	defer func() {
+		if err := uploadBackend.Close(); err != nil {
+			log.Printf("level=warn msg=\"failed to close backend\" err=%q", err)
+		}
+	}()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log.Printf("level=info msg=\"starting canon proxy\" backend=%q download_workers=%d", uploadBackend.Name(), cfg.Camera.DownloadWorkers)
+	log.Printf("level=info msg=\"starting canon proxy\" backend=%q upload_workers=%d", uploadBackend.Name(), cfg.Upload.Workers)
 
-	p := pipeline.New(client, poller, uploadBackend, cfg.Camera.DownloadWorkers)
+	p := pipeline.New(client, poller, uploadBackend, cfg.Upload.Workers)
 	if err := p.Run(ctx); err != nil {
 		log.Fatalf("level=fatal msg=\"pipeline terminated with error\" err=%q", err)
 	}

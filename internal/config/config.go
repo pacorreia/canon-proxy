@@ -15,10 +15,9 @@ type Config struct {
 }
 
 type CameraConfig struct {
-	Host            string        `yaml:"host"`
-	Port            int           `yaml:"port"`
-	PollInterval    time.Duration `yaml:"poll_interval"`
-	DownloadWorkers int           `yaml:"download_workers"`
+	Host         string        `yaml:"host"`
+	Port         int           `yaml:"port"`
+	PollInterval time.Duration `yaml:"poll_interval"`
 }
 
 type UploadConfig struct {
@@ -75,9 +74,8 @@ type GCSConfig struct {
 func Load(path string) (*Config, error) {
 	cfg := &Config{
 		Camera: CameraConfig{
-			Port:            8080,
-			PollInterval:    5 * time.Second,
-			DownloadWorkers: 4,
+			Port:         8080,
+			PollInterval: 5 * time.Second,
 		},
 		Upload: UploadConfig{
 			Workers: 4,
@@ -97,7 +95,6 @@ func Load(path string) (*Config, error) {
 	dec.KnownFields(true)
 	if err := dec.Decode(cfg); err != nil {
 		return nil, fmt.Errorf("decode config yaml: %w", err)
-	}
 	}
 
 	if cfg.Camera.Host == "" {

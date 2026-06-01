@@ -7,10 +7,13 @@ import (
 	"time"
 )
 
+const maxSeenImages = 50_000
+
 type Poller struct {
 	client   *Client
 	interval time.Duration
 	seen     map[string]struct{}
+	seenKeys []string
 	mu       sync.Mutex
 }
 
@@ -63,6 +66,12 @@ func (p *Poller) pollOnce(ctx context.Context, out chan<- Image) bool {
 			continue
 		}
 		p.seen[img.URL] = struct{}{}
+		p.seenKeys = append(p.seenKeys, img.URL)
+		if len(p.seenKeys) > maxSeenImages {
+			oldest := p.seenKeys[0]
+			p.seenKeys = p.seenKeys[1:]
+			delete(p.seen, oldest)
+		}
 		p.mu.Unlock()
 
 		select {

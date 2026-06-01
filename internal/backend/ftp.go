@@ -29,6 +29,8 @@ func (b *FTPBackend) Name() string {
 	return "ftp"
 }
 
+func (b *FTPBackend) Close() error { return nil }
+
 func (b *FTPBackend) Upload(ctx context.Context, filename string, r io.Reader) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("context cancelled before ftp upload: %w", err)

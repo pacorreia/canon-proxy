@@ -43,6 +43,10 @@ func NewGCSBackend(cfg config.GCSConfig) (*GCSBackend, error) {
 	}, nil
 }
 
+func (b *GCSBackend) Close() error {
+	return b.client.Close()
+}
+
 func (b *GCSBackend) Name() string {
 	return "gcs"
 }

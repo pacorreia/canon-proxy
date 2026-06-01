@@ -46,6 +46,8 @@ func (b *AzureBackend) Name() string {
 	return "azure"
 }
 
+func (b *AzureBackend) Close() error { return nil }
+
 func (b *AzureBackend) Upload(ctx context.Context, filename string, r io.Reader) error {
 	blobName := path.Join(b.prefix, filename)
 
