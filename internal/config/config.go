@@ -94,8 +94,10 @@ func Load(path string) (*Config, error) {
 	defer f.Close()
 
 	dec := yaml.NewDecoder(f)
+	dec.KnownFields(true)
 	if err := dec.Decode(cfg); err != nil {
 		return nil, fmt.Errorf("decode config yaml: %w", err)
+	}
 	}
 
 	if cfg.Camera.Host == "" {
