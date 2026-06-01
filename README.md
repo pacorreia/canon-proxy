@@ -19,10 +19,10 @@
 
 ```mermaid
 flowchart TD
-    Camera["Canon EOS 2000D\nWiFi HTTP endpoint"]
+    Camera["Canon EOS 2000D<br/>WiFi HTTP endpoint"]
     Client["Canon HTTP Client"]
-    Poller["Poller\n(new images only)"]
-    WorkerPool["Worker Pool\ndownload + upload"]
+    Poller["Poller<br/>(new images only)"]
+    WorkerPool["Worker Pool<br/>download+upload"]
     SMB["SMB"]
     FTP["FTP"]
     S3["S3"]
