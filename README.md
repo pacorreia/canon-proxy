@@ -17,25 +17,24 @@
 
 ## Architecture
 
-```text
-+--------------------+      poll      +---------------------+
-| Canon EOS 2000D    | <------------> | Canon HTTP Client   |
-| WiFi HTTP endpoint |                +----------+----------+
-+--------------------+                           |
-                                                  v
-                                         +--------+--------+
-                                         | Poller           |
-                                         | (new images only)|
-                                         +--------+--------+
-                                                  |
-                                                  v
-                                         +--------+--------+
-                                         | Worker Pool      |
-                                         | download+upload  |
-                                         +---+---+---+---+-+
-                                             |   |   |   |
-                                             v   v   v   v
-                                           SMB FTP  S3  Azure/GCS
+```mermaid
+flowchart TD
+    Camera["Canon EOS 2000D<br/>WiFi HTTP endpoint"]
+    Client["Canon HTTP Client"]
+    Poller["Poller<br/>(new images only)"]
+    WorkerPool["Worker Pool<br/>download+upload"]
+    SMB["SMB"]
+    FTP["FTP"]
+    S3["S3"]
+    AzureGCS["Azure/GCS"]
+
+    Camera <-->|poll| Client
+    Client --> Poller
+    Poller --> WorkerPool
+    WorkerPool --> SMB
+    WorkerPool --> FTP
+    WorkerPool --> S3
+    WorkerPool --> AzureGCS
 ```
 
 ## Build
