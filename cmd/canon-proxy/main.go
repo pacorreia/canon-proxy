@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -39,7 +38,7 @@ func main() {
 
 	p := pipeline.New(client, poller, uploadBackend, cfg.Camera.DownloadWorkers)
 	if err := p.Run(ctx); err != nil {
-		log.Fatalf("level=fatal msg=\"pipeline terminated with error\" err=%q", fmt.Errorf("run pipeline: %w", err))
+		log.Fatalf("level=fatal msg=\"pipeline terminated with error\" err=%q", err)
 	}
 
 	log.Printf("level=info msg=\"canon proxy stopped\"")

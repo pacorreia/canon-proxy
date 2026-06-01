@@ -3,6 +3,7 @@ package canon
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -10,6 +11,7 @@ type Poller struct {
 	client   *Client
 	interval time.Duration
 	seen     map[string]struct{}
+	mu       sync.Mutex
 }
 
 func NewPoller(client *Client, interval time.Duration) *Poller {
@@ -55,10 +57,13 @@ func (p *Poller) pollOnce(ctx context.Context, out chan<- Image) bool {
 	}
 
 	for _, img := range images {
+		p.mu.Lock()
 		if _, ok := p.seen[img.URL]; ok {
+			p.mu.Unlock()
 			continue
 		}
 		p.seen[img.URL] = struct{}{}
+		p.mu.Unlock()
 
 		select {
 		case <-ctx.Done():

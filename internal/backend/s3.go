@@ -52,9 +52,6 @@ func (b *S3Backend) Name() string {
 
 func (b *S3Backend) Upload(ctx context.Context, filename string, r io.Reader) error {
 	key := path.Join(b.prefix, filename)
-	if strings.TrimSpace(key) == "" {
-		key = filename
-	}
 
 	_, err := b.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(b.bucket),

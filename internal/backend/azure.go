@@ -48,9 +48,6 @@ func (b *AzureBackend) Name() string {
 
 func (b *AzureBackend) Upload(ctx context.Context, filename string, r io.Reader) error {
 	blobName := path.Join(b.prefix, filename)
-	if strings.TrimSpace(blobName) == "" {
-		blobName = filename
-	}
 
 	_, err := b.client.UploadStream(ctx, b.container, blobName, r, nil)
 	if err != nil {

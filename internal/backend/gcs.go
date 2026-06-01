@@ -49,9 +49,6 @@ func (b *GCSBackend) Name() string {
 
 func (b *GCSBackend) Upload(ctx context.Context, filename string, r io.Reader) error {
 	objectName := path.Join(b.prefix, filename)
-	if strings.TrimSpace(objectName) == "" {
-		objectName = filename
-	}
 
 	wc := b.client.Bucket(b.bucket).Object(objectName).NewWriter(ctx)
 	if _, err := io.Copy(wc, r); err != nil {

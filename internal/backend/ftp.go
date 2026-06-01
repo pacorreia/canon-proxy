@@ -52,8 +52,10 @@ func (b *FTPBackend) Upload(ctx context.Context, filename string, r io.Reader) e
 
 	dir := path.Clean("/" + strings.TrimPrefix(b.cfg.Path, "/"))
 	if dir != "/" {
-		if err := conn.MakeDir(dir); err != nil && !strings.Contains(strings.ToLower(err.Error()), "file exists") {
-			return fmt.Errorf("create ftp directory %s: %w", dir, err)
+		if err := conn.ChangeDir(dir); err != nil {
+			if err := conn.MakeDir(dir); err != nil {
+				return fmt.Errorf("create ftp directory %s: %w", dir, err)
+			}
 		}
 	}
 
