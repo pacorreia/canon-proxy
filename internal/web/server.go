@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -27,6 +28,7 @@ type Server struct {
 	cameraBase string // e.g. "http://192.168.1.100:8080"
 	push       PushFunc
 	httpServer *http.Server
+	thumbClient *http.Client
 }
 
 // New creates a Server.
@@ -40,6 +42,9 @@ func New(st *store.Store, cameraBase string, push PushFunc, listen string) *Serv
 		store:      st,
 		cameraBase: strings.TrimRight(cameraBase, "/"),
 		push:       push,
+		thumbClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 	}
 
 	mux := http.NewServeMux()
@@ -180,7 +185,7 @@ func (s *Server) handleThumb(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := http.DefaultClient.Do(proxyReq)
+	resp, err := s.thumbClient.Do(proxyReq)
 	if err != nil {
 		http.Error(w, "failed to fetch thumbnail from camera", http.StatusBadGateway)
 		return
@@ -193,17 +198,8 @@ func (s *Server) handleThumb(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/jpeg")
 	}
 	w.WriteHeader(resp.StatusCode)
-	buf := make([]byte, 32*1024)
-	for {
-		n, readErr := resp.Body.Read(buf)
-		if n > 0 {
-			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
-				return
-			}
-		}
-		if readErr != nil {
-			break
-		}
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		log.Printf("level=warn component=web msg=\"thumb copy error\" err=%q", err)
 	}
 }
 

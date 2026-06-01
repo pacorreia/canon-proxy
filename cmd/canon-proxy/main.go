@@ -65,5 +65,3 @@ func main() {
 
 	log.Printf("level=info msg=\"canon proxy stopped\"")
 }
-
-

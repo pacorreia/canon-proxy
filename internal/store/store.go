@@ -28,15 +28,17 @@ const maxEntries = 50_000
 
 // Store is a thread-safe registry of detected images.
 type Store struct {
-	mu      sync.RWMutex
-	entries map[string]*Entry // keyed by URL
-	keys    []string          // insertion-ordered URLs for eviction
+	mu       sync.RWMutex
+	entries  map[string]*Entry // keyed by URL
+	byName   map[string]*Entry // keyed by filename (secondary index)
+	keys     []string          // insertion-ordered URLs for eviction
 }
 
 // New returns an initialised Store.
 func New() *Store {
 	return &Store{
 		entries: make(map[string]*Entry),
+		byName:  make(map[string]*Entry),
 	}
 }
 
@@ -57,12 +59,16 @@ func (s *Store) Add(filename, url string) bool {
 		DetectedAt: time.Now().UTC(),
 	}
 	s.entries[url] = e
+	s.byName[filename] = e
 	s.keys = append(s.keys, url)
 
 	// Evict oldest if over capacity.
 	if len(s.keys) > maxEntries {
 		oldest := s.keys[0]
 		s.keys = s.keys[1:]
+		if old, ok := s.entries[oldest]; ok {
+			delete(s.byName, old.Filename)
+		}
 		delete(s.entries, oldest)
 	}
 
@@ -85,13 +91,12 @@ func (s *Store) Get(url string) *Entry {
 func (s *Store) GetByFilename(filename string) *Entry {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	for _, e := range s.entries {
-		if e.Filename == filename {
-			cp := *e
-			return &cp
-		}
+	e := s.byName[filename]
+	if e == nil {
+		return nil
 	}
-	return nil
+	cp := *e
+	return &cp
 }
 
 // SetStatus updates the status (and optional error message) for the entry
