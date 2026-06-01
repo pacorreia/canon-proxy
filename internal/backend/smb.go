@@ -34,9 +34,11 @@ func (b *SMBBackend) Upload(ctx context.Context, filename string, r io.Reader) e
 		addr = net.JoinHostPort(addr, "445")
 	}
 
-	conn, err := net.Dial("tcp", addr)
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("dial smb server %s: %w", addr, err)
+	}
 	}
 	defer conn.Close()
 
