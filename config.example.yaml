@@ -7,6 +7,10 @@ upload:
   workers: 4
   backend: smb # smb | ftp | s3 | azure | gcs
 
+web:
+  listen: ":9090"  # address for the web UI; leave default or set to "" to disable in auto mode
+  mode: manual     # manual = queue images for review | auto = upload every image immediately (default)
+
 backends:
   smb:
     host: "192.168.1.10"

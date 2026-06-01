@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canon Proxy</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #1e1e1e;
+      border-bottom: 1px solid #333;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    header h1 { font-size: 1.25rem; font-weight: 600; flex: 1; }
+
+    #status-bar {
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+      padding: .75rem 1.5rem;
+      background: #181818;
+      border-bottom: 1px solid #2a2a2a;
+      align-items: center;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      padding: .45rem 1rem;
+      font-size: .85rem;
+      font-weight: 600;
+      transition: opacity .15s;
+    }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    button:not(:disabled):hover { opacity: .85; }
+
+    .btn-primary   { background: #0d6efd; color: #fff; }
+    .btn-secondary { background: #444; color: #eee; }
+    .btn-danger    { background: #dc3545; color: #fff; }
+
+    #select-all { accent-color: #0d6efd; width: 1.1rem; height: 1.1rem; cursor: pointer; }
+    label[for=select-all] { font-size: .85rem; color: #ccc; }
+
+    #count-label { margin-left: auto; font-size: .8rem; color: #888; }
+
+    main {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: #1e1e1e;
+      border: 2px solid #2a2a2a;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color .15s;
+      position: relative;
+    }
+    .card.selected { border-color: #0d6efd; }
+
+    .card-check {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 1.2rem;
+      height: 1.2rem;
+      accent-color: #0d6efd;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .card-img-wrap {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .card-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .card-img-wrap .no-thumb {
+      font-size: 2.5rem;
+      opacity: .3;
+    }
+
+    .card-body {
+      padding: .5rem .6rem;
+      display: flex;
+      flex-direction: column;
+      gap: .25rem;
+    }
+
+    .card-name {
+      font-size: .75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .badge {
+      display: inline-block;
+      border-radius: 4px;
+      padding: .15rem .45rem;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .badge-pending   { background: #444;   color: #ccc; }
+    .badge-uploading { background: #0d6efd; color: #fff; }
+    .badge-done      { background: #198754; color: #fff; }
+    .badge-failed    { background: #dc3545; color: #fff; }
+
+    .card-time {
+      font-size: .65rem;
+      color: #666;
+    }
+    .card-error {
+      font-size: .65rem;
+      color: #f88;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    #empty-msg {
+      text-align: center;
+      color: #555;
+      margin-top: 4rem;
+      font-size: 1rem;
+    }
+
+    /* Modal */
+    #modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.75);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    #modal-backdrop.open { display: flex; }
+    #modal {
+      background: #1e1e1e;
+      border-radius: 12px;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    #modal img {
+      max-width: 80vw;
+      max-height: 80vh;
+      display: block;
+    }
+    #modal-close {
+      align-self: flex-end;
+      margin: .5rem;
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 1.5rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    #modal-close:hover { color: #fff; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📷 Canon Proxy</h1>
+  <span id="status-bar">Connecting…</span>
+</header>
+
+<div class="toolbar">
+  <input type="checkbox" id="select-all" />
+  <label for="select-all">Select all</label>
+  <button class="btn-primary"   id="btn-push-selected" disabled>Push selected</button>
+  <button class="btn-secondary" id="btn-push-all"      disabled>Push all pending</button>
+  <span id="count-label"></span>
+</div>
+
+<main>
+  <div id="grid"></div>
+  <p id="empty-msg" style="display:none">No images detected yet. Waiting for camera…</p>
+</main>
+
+<div id="modal-backdrop">
+  <div id="modal">
+    <button id="modal-close" title="Close">✕</button>
+    <img id="modal-img" src="" alt="preview" />
+  </div>
+</div>
+
+<script>
+(() => {
+  const REFRESH_MS = 4000;
+
+  const grid       = document.getElementById('grid');
+  const emptyMsg   = document.getElementById('empty-msg');
+  const statusBar  = document.getElementById('status-bar');
+  const countLabel = document.getElementById('count-label');
+  const btnSel     = document.getElementById('btn-push-selected');
+  const btnAll     = document.getElementById('btn-push-all');
+  const selAll     = document.getElementById('select-all');
+  const backdrop   = document.getElementById('modal-backdrop');
+  const modalImg   = document.getElementById('modal-img');
+
+  // State: filename -> {entry, card element, checkbox}
+  const state = new Map();
+  let selected = new Set();
+
+  // ── Fetch & render ────────────────────────────────────────────
+  async function refresh() {
+    let images;
+    try {
+      const r = await fetch('/api/images');
+      if (!r.ok) throw new Error(r.statusText);
+      images = await r.json();
+      statusBar.textContent = `Last refresh: ${new Date().toLocaleTimeString()}`;
+    } catch (e) {
+      statusBar.textContent = `⚠ Connection error: ${e.message}`;
+      return;
+    }
+
+    if (!images || images.length === 0) {
+      emptyMsg.style.display = '';
+      updateCounts(images || []);
+      return;
+    }
+    emptyMsg.style.display = 'none';
+
+    // Update existing cards & add new ones
+    for (const img of images) {
+      if (state.has(img.filename)) {
+        updateCard(img);
+      } else {
+        addCard(img);
+      }
+    }
+
+    updateCounts(images);
+  }
+
+  function addCard(img) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.filename = img.filename;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'card-check';
+    cb.disabled = img.status !== 'pending';
+    cb.addEventListener('change', () => {
+      if (cb.checked) selected.add(img.filename);
+      else selected.delete(img.filename);
+      card.classList.toggle('selected', cb.checked);
+      syncSelAll();
+      updateButtonState();
+    });
+
+    const imgWrap = document.createElement('div');
+    imgWrap.className = 'card-img-wrap';
+    const thumbUrl = `/api/images/${encodeURIComponent(img.filename)}/thumb`;
+    const thumbEl = document.createElement('img');
+    thumbEl.src = thumbUrl;
+    thumbEl.alt = img.filename;
+    thumbEl.loading = 'lazy';
+    thumbEl.onerror = () => {
+      imgWrap.innerHTML = '<span class="no-thumb">🖼</span>';
+    };
+    thumbEl.addEventListener('click', () => openModal(thumbUrl));
+    imgWrap.appendChild(thumbEl);
+
+    const body = document.createElement('div');
+    body.className = 'card-body';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'card-name';
+    nameEl.title = img.filename;
+    nameEl.textContent = img.filename;
+
+    const badgeEl = document.createElement('span');
+    badgeEl.className = `badge badge-${img.status}`;
+    badgeEl.textContent = img.status;
+
+    const timeEl = document.createElement('div');
+    timeEl.className = 'card-time';
+    timeEl.textContent = new Date(img.detected_at).toLocaleString();
+
+    body.appendChild(nameEl);
+    body.appendChild(badgeEl);
+    body.appendChild(timeEl);
+
+    if (img.error) {
+      const errEl = document.createElement('div');
+      errEl.className = 'card-error';
+      errEl.textContent = img.error;
+      body.appendChild(errEl);
+    }
+
+    card.appendChild(cb);
+    card.appendChild(imgWrap);
+    card.appendChild(body);
+    grid.appendChild(card);
+
+    state.set(img.filename, { img, card, cb, badgeEl, body });
+  }
+
+  function updateCard(img) {
+    const s = state.get(img.filename);
+    if (!s) return;
+    s.img = img;
+    s.badgeEl.className = `badge badge-${img.status}`;
+    s.badgeEl.textContent = img.status;
+    s.cb.disabled = img.status !== 'pending';
+    if (img.status !== 'pending') {
+      selected.delete(img.filename);
+      s.cb.checked = false;
+      s.card.classList.remove('selected');
+    }
+    // Update or remove error
+    let errEl = s.body.querySelector('.card-error');
+    if (img.error) {
+      if (!errEl) {
+        errEl = document.createElement('div');
+        errEl.className = 'card-error';
+        s.body.appendChild(errEl);
+      }
+      errEl.textContent = img.error;
+    } else if (errEl) {
+      errEl.remove();
+    }
+  }
+
+  function updateCounts(images) {
+    const pending = images.filter(i => i.status === 'pending').length;
+    countLabel.textContent = `${images.length} image${images.length !== 1 ? 's' : ''} · ${pending} pending`;
+    btnAll.disabled = pending === 0;
+    updateButtonState();
+  }
+
+  function updateButtonState() {
+    btnSel.disabled = selected.size === 0;
+  }
+
+  function syncSelAll() {
+    const allPending = [...state.values()].filter(s => s.img.status === 'pending');
+    selAll.checked = allPending.length > 0 && allPending.every(s => selected.has(s.img.filename));
+    selAll.indeterminate = !selAll.checked && selected.size > 0;
+  }
+
+  // ── Select all ────────────────────────────────────────────────
+  selAll.addEventListener('change', () => {
+    for (const [, s] of state) {
+      if (s.img.status !== 'pending') continue;
+      s.cb.checked = selAll.checked;
+      s.card.classList.toggle('selected', selAll.checked);
+      if (selAll.checked) selected.add(s.img.filename);
+      else selected.delete(s.img.filename);
+    }
+    updateButtonState();
+  });
+
+  // ── Push selected ─────────────────────────────────────────────
+  btnSel.addEventListener('click', async () => {
+    if (selected.size === 0) return;
+    const filenames = [...selected];
+    try {
+      const r = await fetch('/api/images/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filenames }),
+      });
+      if (!r.ok) { const t = await r.text(); throw new Error(t); }
+    } catch (e) {
+      alert(`Push failed: ${e.message}`);
+    }
+    selected.clear();
+    selAll.checked = false;
+    selAll.indeterminate = false;
+    updateButtonState();
+    await refresh();
+  });
+
+  // ── Push all ──────────────────────────────────────────────────
+  btnAll.addEventListener('click', async () => {
+    try {
+      const r = await fetch('/api/images/push-all', { method: 'POST' });
+      if (!r.ok) { const t = await r.text(); throw new Error(t); }
+    } catch (e) {
+      alert(`Push all failed: ${e.message}`);
+    }
+    selected.clear();
+    updateButtonState();
+    await refresh();
+  });
+
+  // ── Modal ─────────────────────────────────────────────────────
+  function openModal(src) {
+    modalImg.src = src;
+    backdrop.classList.add('open');
+  }
+  document.getElementById('modal-close').addEventListener('click', () => {
+    backdrop.classList.remove('open');
+    modalImg.src = '';
+  });
+  backdrop.addEventListener('click', e => {
+    if (e.target === backdrop) {
+      backdrop.classList.remove('open');
+      modalImg.src = '';
+    }
+  });
+
+  // ── Poll ──────────────────────────────────────────────────────
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+})();
+</script>
+</body>
+</html>
