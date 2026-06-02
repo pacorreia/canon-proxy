@@ -1,461 +1,1450 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Canon Proxy</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canon Proxy</title>
+<style>
+/* ---- Material 3 Dark Tokens ---- */
+:root {
+  --md-primary: #D0BCFF;
+  --md-on-primary: #381E72;
+  --md-primary-container: #4F378B;
+  --md-on-primary-container: #EADDFF;
+  --md-secondary: #CCC2DC;
+  --md-on-secondary: #332D41;
+  --md-secondary-container: #4A4458;
+  --md-on-secondary-container: #E8DEF8;
+  --md-error: #F2B8B5;
+  --md-on-error: #601410;
+  --md-error-container: #8C1D18;
+  --md-on-error-container: #F9DEDC;
+  --md-background: #10101A;
+  --md-on-background: #E6E1E5;
+  --md-surface: #1C1B1F;
+  --md-on-surface: #E6E1E5;
+  --md-surface-variant: #49454F;
+  --md-on-surface-variant: #CAC4D0;
+  --md-outline: #938F99;
+  --md-outline-variant: #49454F;
+  --md-surface-container-lowest: #0F0D13;
+  --md-surface-container-low: #1D1B20;
+  --md-surface-container: #211F26;
+  --md-surface-container-high: #2B2930;
+  --md-surface-container-highest: #36343B;
+  --md-success: #6DD58C;
+  --md-on-success: #003919;
+  --md-warning: #FFBB29;
+  --md-on-warning: #3C2A00;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 28px;
+  --nav-height: 80px;
+  --appbar-height: 64px;
+}
 
-    body {
-      font-family: system-ui, sans-serif;
-      background: #111;
-      color: #eee;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--md-background);color:var(--md-on-background);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;overflow:hidden}
 
-    header {
-      background: #1e1e1e;
-      border-bottom: 1px solid #333;
-      padding: 1rem 1.5rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
+/* ---- App layout ---- */
+#app{display:flex;flex-direction:column;height:100%}
+#appbar{display:flex;align-items:center;height:var(--appbar-height);padding:0 16px;background:var(--md-surface-container-low);border-bottom:1px solid var(--md-outline-variant);gap:12px;flex-shrink:0;z-index:10}
+#appbar h1{font-size:22px;font-weight:500;color:var(--md-on-surface);flex:1;letter-spacing:.02em}
+.appbar-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500;color:var(--md-on-surface-variant);background:var(--md-surface-container)}
+.appbar-chip.online{color:var(--md-success)}
+.appbar-chip .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+#pages{flex:1;overflow:hidden;position:relative}
+.page{display:none;position:absolute;inset:0;overflow-y:auto;padding:16px;flex-direction:column;gap:12px}
+.page.active{display:flex}
+/* Settings page: block layout so sections never flex-shrink and clip */
+#page-settings{padding:0}
+#page-settings.active{display:block}
+#settings-scroll{padding:16px;min-height:100%}
+#nav{display:flex;height:var(--nav-height);background:var(--md-surface-container-low);border-top:1px solid var(--md-outline-variant);flex-shrink:0}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;border:none;background:transparent;color:var(--md-on-surface-variant);font-size:11px;font-weight:500;transition:color .2s;padding:12px 0}
+.nav-item .nav-icon{display:flex;align-items:center;justify-content:center;width:64px;height:32px;border-radius:16px;transition:background .2s}
+.nav-item.active{color:var(--md-primary)}
+.nav-item.active .nav-icon{background:var(--md-primary-container)}
+.nav-item svg{width:24px;height:24px;fill:currentColor}
 
-    header h1 { font-size: 1.25rem; font-weight: 600; flex: 1; }
+/* ---- Buttons ---- */
+.btn{display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;font-size:14px;font-weight:500;letter-spacing:.03em;transition:filter .15s,opacity .15s;padding:10px 20px;border-radius:var(--radius-xl);line-height:1}
+.btn:disabled{opacity:.38;cursor:default}
+.btn-filled{background:var(--md-primary);color:var(--md-on-primary)}
+.btn-tonal{background:var(--md-secondary-container);color:var(--md-on-secondary-container)}
+.btn-outlined{background:transparent;color:var(--md-primary);border:1px solid var(--md-outline)}
+.btn-text{background:transparent;color:var(--md-primary);padding:10px 12px}
+.btn svg{width:18px;height:18px;fill:currentColor;flex-shrink:0}
+.btn:not(:disabled):hover{filter:brightness(1.1)}
 
-    #status-bar {
-      font-size: 0.8rem;
-      color: #888;
-    }
+/* ---- Chips / filters ---- */
+.chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--md-outline-variant);background:transparent;color:var(--md-on-surface-variant);transition:background .15s,color .15s}
+.chip.active{background:var(--md-secondary-container);color:var(--md-on-secondary-container);border-color:transparent}
+.chip .badge{font-size:11px;background:var(--md-outline-variant);color:var(--md-on-surface);padding:1px 6px;border-radius:10px}
+.chip.active .badge{background:var(--md-on-secondary-container);color:var(--md-secondary-container)}
 
-    .toolbar {
-      display: flex;
-      gap: .5rem;
-      flex-wrap: wrap;
-      padding: .75rem 1.5rem;
-      background: #181818;
-      border-bottom: 1px solid #2a2a2a;
-      align-items: center;
-    }
+/* ---- Cards ---- */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.img-card{position:relative;border-radius:var(--radius-md);overflow:hidden;background:var(--md-surface-container);cursor:pointer;aspect-ratio:4/3;transition:outline .1s}
+.img-card.selected{outline:2px solid var(--md-primary)}
+.img-card.hidden{display:none}
+.img-card__thumb{width:100%;height:100%;object-fit:cover;display:block;background:var(--md-surface-container-high)}
+.img-card__overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.7) 0%,transparent 55%)}
+.img-card__name{position:absolute;bottom:8px;left:8px;right:8px;font-size:11px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.img-card__status{position:absolute;top:8px;right:8px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.img-card__check{position:absolute;top:8px;left:8px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;cursor:pointer;z-index:3}
+.img-card:hover .img-card__check,.img-card.selected .img-card__check{opacity:1}
+.img-card__check input{width:16px;height:16px;accent-color:var(--md-primary);cursor:pointer;pointer-events:none}
+.img-card__dl{position:absolute;bottom:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;cursor:pointer;z-index:3;border:none}
+.img-card__dl svg{width:15px;height:15px;fill:#fff}
+.img-card:hover .img-card__dl{opacity:1}
+.img-card__dl:hover{background:rgba(0,0,0,.8)}
+/* Shimmer on uploading */
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.img-card.uploading .img-card__thumb{background:linear-gradient(90deg,var(--md-surface-container-high) 25%,var(--md-surface-container-highest) 50%,var(--md-surface-container-high) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+/* Status colours */
+.status-discovered{background:#37474f;color:#b0bec5}
+.status-queued{background:var(--md-secondary-container);color:var(--md-on-secondary-container)}
+.status-uploading{background:#1565c0;color:#e3f2fd}
+.status-done{background:#1b5e20;color:#a5d6a7}
+.status-failed{background:var(--md-error-container);color:var(--md-on-error-container)}
 
-    button {
-      cursor: pointer;
-      border: none;
-      border-radius: 6px;
-      padding: .45rem 1rem;
-      font-size: .85rem;
-      font-weight: 600;
-      transition: opacity .15s;
-    }
-    button:disabled { opacity: .4; cursor: not-allowed; }
-    button:not(:disabled):hover { opacity: .85; }
+/* ---- Selection toolbar ---- */
+#selection-bar{display:none;align-items:center;gap:10px;padding:10px 14px;background:var(--md-primary-container);color:var(--md-on-primary-container);border-radius:var(--radius-md);margin-bottom:8px}
+#selection-bar.visible{display:flex}
+#selection-bar span{flex:1;font-weight:500}
 
-    .btn-primary   { background: #0d6efd; color: #fff; }
-    .btn-secondary { background: #444; color: #eee; }
-    .btn-danger    { background: #dc3545; color: #fff; }
+/* ---- Queue list ---- */
+.queue-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:var(--md-surface-container);border-radius:var(--radius-md)}
+.queue-controls h3{flex:1;font-size:15px;font-weight:500;color:var(--md-on-surface)}
+.progress-bar-wrap{height:4px;border-radius:2px;background:var(--md-surface-variant);overflow:hidden;margin-bottom:4px}
+.progress-bar-fill{height:100%;background:var(--md-primary);transition:width .4s}
+.queue-stats{display:flex;gap:16px;font-size:12px;color:var(--md-on-surface-variant)}
+.queue-stats span{display:flex;align-items:center;gap:4px}
+.queue-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--md-surface-container);border-radius:var(--radius-md);margin-bottom:8px}
+.queue-item__thumb{width:48px;height:36px;border-radius:6px;object-fit:cover;background:var(--md-surface-container-high);flex-shrink:0}
+.queue-item__info{flex:1;min-width:0}
+.queue-item__name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.queue-item__meta{font-size:11px;color:var(--md-on-surface-variant);margin-top:2px}
+.queue-item__status{flex-shrink:0}
+.section-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--md-on-surface-variant);margin:16px 0 8px}
 
-    #select-all { accent-color: #0d6efd; width: 1.1rem; height: 1.1rem; cursor: pointer; }
-    label[for=select-all] { font-size: .85rem; color: #ccc; }
+/* ---- Settings ---- */
+.settings-section{background:var(--md-surface-container);border-radius:var(--radius-md);margin-bottom:10px;overflow:hidden}
+.settings-section h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--md-primary);padding:10px 14px 8px;border-bottom:1px solid var(--md-outline-variant)}
+.setting-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--md-outline-variant)}
+.setting-row:last-child{border-bottom:none}
+.setting-row label{font-size:12px;color:var(--md-on-surface-variant);min-width:130px;width:130px;flex-shrink:0}
+.setting-row input,.setting-row select{flex:1;min-width:0;background:var(--md-surface-container-high);border:1px solid var(--md-outline-variant);border-radius:var(--radius-sm);color:var(--md-on-surface);padding:6px 10px;font-size:13px;outline:none;transition:border-color .15s}
+.setting-row input:focus,.setting-row select:focus{border-color:var(--md-primary)}
+.settings-footer{display:flex;align-items:center;gap:10px;padding:12px 0 4px;justify-content:flex-end}
+/* log viewer */
+#log-viewer-box{background:#0a0a0a;border-radius:var(--radius-sm);margin:10px 14px;padding:10px;overflow-y:auto;max-height:320px;min-height:80px;font-family:monospace;font-size:11.5px;line-height:1.5;color:#b0e0b0;white-space:pre;display:none}
+#log-viewer-box.open{display:block}
+.log-viewer-toolbar{display:flex;gap:8px;padding:8px 14px;align-items:center;border-top:1px solid var(--md-outline-variant)}
+/* library grouping */
+.group-header{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:10px 2px 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--md-primary)}
+.group-header::after{content:'';flex:1;height:1px;background:var(--md-outline-variant)}
+/* timeline view */
+#timeline{display:none;flex-direction:column;padding:8px 0 24px}
+#timeline.open{display:flex}
+.tl-day{display:flex;flex-direction:column;position:relative;padding-left:28px;margin-bottom:0}
+/* vertical spine */
+.tl-day::before{content:'';position:absolute;left:10px;top:0;bottom:0;width:2px;background:var(--md-outline-variant)}
+.tl-day:last-child::before{bottom:auto;height:32px}
+/* day node (dot + label) */
+.tl-day__node{display:flex;align-items:center;gap:10px;position:relative;padding:8px 0 6px}
+.tl-day__dot{width:10px;height:10px;border-radius:50%;background:var(--md-primary);border:2px solid var(--md-surface);position:absolute;left:-23px;top:50%;transform:translateY(-50%);flex-shrink:0;box-shadow:0 0 0 3px var(--md-primary-container)}
+.tl-day__label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--md-primary);white-space:nowrap}
+.tl-day__count{font-size:11px;color:var(--md-on-surface-variant);margin-left:4px}
+/* photo strip */
+.tl-day__photos{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 16px}
+/* individual timeline thumbnail card */
+.tl-card{position:relative;width:120px;height:90px;border-radius:var(--radius-sm);overflow:hidden;cursor:pointer;flex-shrink:0;background:var(--md-surface-container)}
+.tl-card img{width:100%;height:100%;object-fit:cover;display:block}
+.tl-card__time{position:absolute;bottom:0;left:0;right:0;padding:3px 5px;background:rgba(0,0,0,.55);font-size:10px;color:#fff;text-align:center}
+.tl-card__status{position:absolute;top:4px;right:4px;padding:1px 5px;border-radius:10px;font-size:9px;font-weight:700;text-transform:uppercase}
+.tl-card__check{position:absolute;top:4px;left:4px;opacity:0;transition:opacity .15s}
+.tl-card:hover .tl-card__check,.tl-card.selected .tl-card__check{opacity:1}
+.tl-card.selected::after{content:'';position:absolute;inset:0;border:2px solid var(--md-primary);border-radius:var(--radius-sm);pointer-events:none}
+.tl-card.uploading{animation:pulse 1.4s infinite}
+.tl-card__play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.tl-card__play svg{width:32px;height:32px;fill:#fff;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));opacity:.9}
+.tl-card.video .tl-card__time{background:rgba(0,0,0,.7);font-weight:700;letter-spacing:.04em}
+/* video badge on flat grid cards */
+.img-card__video-badge{position:absolute;bottom:30px;right:6px;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;letter-spacing:.06em;padding:2px 5px;border-radius:4px;pointer-events:none}
+.img-card__video-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.img-card__video-play svg{width:36px;height:36px;fill:#fff;filter:drop-shadow(0 1px 5px rgba(0,0,0,.8));opacity:.85}
+/* grouping toggle buttons */
+.view-toggle{display:flex;gap:2px;background:var(--md-surface-container);border-radius:var(--radius-sm);padding:2px}
+.view-toggle button{padding:4px 10px;border-radius:calc(var(--radius-sm) - 2px);border:none;background:transparent;color:var(--md-on-surface-variant);font-size:11px;font-weight:600;cursor:pointer;transition:background .15s,color .15s}
+.view-toggle button.active{background:var(--md-surface-container-high);color:var(--md-primary)}
+/* backend-specific rows (inline inside Upload section) */
+.backend-rows{display:none}
+.backend-rows.visible{display:block}
+.setting-subheader{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--md-primary);padding:10px 14px 4px;border-top:1px solid var(--md-outline-variant);margin-top:2px}
 
-    #count-label { margin-left: auto; font-size: .8rem; color: #888; }
+/* ---- Empty states ---- */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 16px;gap:12px;color:var(--md-on-surface-variant);text-align:center}
+.empty-state svg{width:64px;height:64px;fill:var(--md-outline);opacity:.5}
+.empty-state p{font-size:15px}
 
-    main {
-      flex: 1;
-      padding: 1.5rem;
-      overflow-y: auto;
-    }
+/* ---- Toast ---- */
+#toast{position:fixed;bottom:calc(var(--nav-height) + 16px);left:50%;transform:translateX(-50%) translateY(8px);background:var(--md-surface-container-highest);color:var(--md-on-surface);padding:12px 20px;border-radius:var(--radius-xl);font-size:13px;font-weight:500;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:100;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-    #grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 1rem;
-    }
+/* ---- Camera pairing wizard ---- */
+#wizard-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:400;align-items:center;justify-content:center}
+#wizard-overlay.open{display:flex}
+.wizard-card{background:var(--md-surface-container-high);border-radius:var(--radius-lg);width:min(480px,92vw);max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+.wizard-header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--md-outline-variant)}
+.wizard-header h2{font-size:17px;font-weight:500;color:var(--md-on-surface);flex:1}
+.wizard-close{width:32px;height:32px;border-radius:50%;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--md-on-surface-variant)}
+.wizard-close:hover{background:var(--md-surface-container-highest)}
+.wizard-close svg{width:20px;height:20px;fill:currentColor}
+.wizard-body{padding:20px;overflow-y:auto;flex:1}
+.wizard-step{display:none;flex-direction:column;gap:16px}
+.wizard-step.active{display:flex}
+.wizard-desc{font-size:13px;color:var(--md-on-surface-variant);line-height:1.6}
+.wizard-scan-status{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--md-on-surface-variant)}
+.wizard-spinner{width:20px;height:20px;border:2px solid var(--md-outline-variant);border-top-color:var(--md-primary);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+.camera-list{display:flex;flex-direction:column;gap:8px}
+.camera-option{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radius-md);border:1px solid var(--md-outline-variant);cursor:pointer;transition:background .15s,border-color .15s;background:var(--md-surface-container)}
+.camera-option:hover{background:var(--md-surface-container-highest);border-color:var(--md-primary)}
+.camera-option.selected{background:var(--md-primary-container);border-color:var(--md-primary)}
+.camera-option__icon{width:36px;height:36px;border-radius:50%;background:var(--md-secondary-container);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.camera-option__icon svg{width:20px;height:20px;fill:var(--md-on-secondary-container)}
+.camera-option__info{flex:1;min-width:0}
+.camera-option__name{font-size:13px;font-weight:500;color:var(--md-on-surface)}
+.camera-option__ip{font-size:11px;color:var(--md-on-surface-variant);margin-top:2px}
+.camera-option__check{width:20px;height:20px;border-radius:50%;border:2px solid var(--md-outline);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.camera-option.selected .camera-option__check{background:var(--md-primary);border-color:var(--md-primary)}
+.camera-option.selected .camera-option__check::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--md-on-primary)}
+.wizard-empty{text-align:center;padding:24px;color:var(--md-on-surface-variant);font-size:13px}
+.wizard-footer{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--md-outline-variant)}
 
-    .card {
-      background: #1e1e1e;
-      border: 2px solid #2a2a2a;
-      border-radius: 10px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      transition: border-color .15s;
-      position: relative;
-    }
-    .card.selected { border-color: #0d6efd; }
-
-    .card-check {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      width: 1.2rem;
-      height: 1.2rem;
-      accent-color: #0d6efd;
-      cursor: pointer;
-      z-index: 2;
-    }
-
-    .card-img-wrap {
-      width: 100%;
-      aspect-ratio: 4/3;
-      background: #111;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      cursor: pointer;
-    }
-    .card-img-wrap img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .card-img-wrap .no-thumb {
-      font-size: 2.5rem;
-      opacity: .3;
-    }
-
-    .card-body {
-      padding: .5rem .6rem;
-      display: flex;
-      flex-direction: column;
-      gap: .25rem;
-    }
-
-    .card-name {
-      font-size: .75rem;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .badge {
-      display: inline-block;
-      border-radius: 4px;
-      padding: .15rem .45rem;
-      font-size: .7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-    .badge-pending   { background: #444;   color: #ccc; }
-    .badge-uploading { background: #0d6efd; color: #fff; }
-    .badge-done      { background: #198754; color: #fff; }
-    .badge-failed    { background: #dc3545; color: #fff; }
-
-    .card-time {
-      font-size: .65rem;
-      color: #666;
-    }
-    .card-error {
-      font-size: .65rem;
-      color: #f88;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    #empty-msg {
-      text-align: center;
-      color: #555;
-      margin-top: 4rem;
-      font-size: 1rem;
-    }
-
-    /* Modal */
-    #modal-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.75);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
-    }
-    #modal-backdrop.open { display: flex; }
-    #modal {
-      background: #1e1e1e;
-      border-radius: 12px;
-      max-width: 90vw;
-      max-height: 90vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    #modal img {
-      max-width: 80vw;
-      max-height: 80vh;
-      display: block;
-    }
-    #modal-close {
-      align-self: flex-end;
-      margin: .5rem;
-      background: none;
-      border: none;
-      color: #aaa;
-      font-size: 1.5rem;
-      cursor: pointer;
-      line-height: 1;
-    }
-    #modal-close:hover { color: #fff; }
-  </style>
+/* ---- Restart overlay ---- */
+#restart-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+#restart-overlay.open{display:flex}
+.restart-card{display:flex;flex-direction:column;align-items:center;gap:16px;background:var(--md-surface-container-high);padding:32px 40px;border-radius:var(--radius-lg);text-align:center}
+.restart-spinner{width:40px;height:40px;border:3px solid var(--md-outline-variant);border-top-color:var(--md-primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.restart-card p{font-size:15px;font-weight:500;color:var(--md-on-surface)}
+.restart-card small{font-size:12px;color:var(--md-on-surface-variant)}
+#modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center}
+#modal-overlay.open{display:flex}
+#modal-img{max-width:90vw;max-height:85vh;border-radius:var(--radius-md);box-shadow:0 8px 32px rgba(0,0,0,.6)}
+</style>
 </head>
 <body>
+<div id="app">
+  <!-- App Bar -->
+  <header id="appbar">
+    <h1>Canon Proxy</h1>
+    <div class="appbar-chip" id="conn-chip"><span class="dot"></span><span id="conn-label">Connecting…</span></div>
+  </header>
 
-<header>
-  <h1>📷 Canon Proxy</h1>
-  <span id="status-bar">Connecting…</span>
-</header>
+  <!-- Pages -->
+  <div id="pages">
+    <!-- ====== LIBRARY ====== -->
+    <div class="page active" id="page-library">
+      <div class="chip-row" id="filter-row">
+        <button class="chip active" data-filter="all">All <span class="badge" id="cnt-all">0</span></button>
+        <button class="chip" data-filter="discovered">Discovered <span class="badge" id="cnt-discovered">0</span></button>
+        <button class="chip" data-filter="queued">Queued <span class="badge" id="cnt-queued">0</span></button>
+        <button class="chip" data-filter="uploading">Uploading <span class="badge" id="cnt-uploading">0</span></button>
+        <button class="chip" data-filter="done">Done <span class="badge" id="cnt-done">0</span></button>
+        <button class="chip" data-filter="failed">Failed <span class="badge" id="cnt-failed">0</span></button>
+        <div style="flex:1"></div>
+        <div class="view-toggle" id="view-toggle">
+          <button data-view="flat" class="active" title="Flat grid">Grid</button>
+          <button data-view="date" title="Group by date">By Date</button>
+          <button data-view="timeline" title="Timeline">Timeline</button>
+        </div>
+        <button class="btn btn-tonal" id="btn-queue-all" style="padding:6px 14px;font-size:13px">
+          <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2m1 5v5h4l-5 5-5-5h4V7z"/></svg>
+          Queue All
+        </button>
+      </div>
+      <div id="selection-bar">
+        <span id="sel-count">0 selected</span>
+        <button class="btn btn-outlined" id="btn-deselect" style="padding:6px 14px;font-size:13px">Deselect</button>
+        <button class="btn btn-tonal" id="btn-download-selected" style="padding:6px 14px;font-size:13px">
+          <svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zm7-18v12.17l-4.59-4.58L6 11l6 6 6-6-1.41-1.41L13 14.17V2h-2z"/></svg>
+          Download
+        </button>
+        <button class="btn btn-filled" id="btn-queue-selected" style="padding:6px 14px;font-size:13px">
+          <svg viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          Queue Selected
+        </button>
+      </div>
+      <div class="card-grid" id="card-grid">
+        <div class="empty-state" id="library-empty" style="grid-column:1/-1">
+          <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+          <p>No images yet. Waiting for camera…</p>
+        </div>
+      </div>
+      <div id="timeline"></div>
+    </div>
 
-<div class="toolbar">
-  <input type="checkbox" id="select-all" />
-  <label for="select-all">Select all</label>
-  <button class="btn-primary"   id="btn-push-selected" disabled>Push selected</button>
-  <button class="btn-secondary" id="btn-push-all"      disabled>Push all pending</button>
-  <span id="count-label"></span>
+    <!-- ====== QUEUE ====== -->
+    <div class="page" id="page-queue">
+      <div class="queue-controls">
+        <h3>Upload Queue</h3>
+        <button class="btn btn-tonal" id="btn-pause" style="padding:7px 14px;font-size:13px">
+          <svg viewBox="0 0 24 24" id="pause-icon"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
+          <span id="pause-label">Pause</span>
+        </button>
+        <button class="btn btn-outlined" id="btn-retry-failed" style="padding:7px 14px;font-size:13px">Retry Failed</button>
+        <button class="btn btn-text" id="btn-clear-queue" style="padding:7px 14px;font-size:13px">Clear</button>
+      </div>
+      <div class="progress-bar-wrap" style="margin-top:4px">
+        <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+      <div class="queue-stats" id="queue-stats"></div>
+      <div id="queue-list"></div>
+    </div>
+
+    <!-- ====== SETTINGS ====== -->
+    <div class="page" id="page-settings">
+      <div id="settings-scroll">
+      <!-- Camera -->
+      <div class="settings-section">
+        <h3>Camera</h3>
+        <div class="setting-row"><label>Host</label><input id="s-camera-host" placeholder="192.168.2.159"></div>
+        <div class="setting-row"><label>Port</label><input id="s-camera-port" type="number" placeholder="15740"></div>
+        <div class="setting-row"><label>Listen Addr</label><input id="s-camera-listen" placeholder=":15740 (server mode)"></div>
+        <div class="setting-row"><label>Poll Interval</label><input id="s-camera-poll" placeholder="5s"></div>
+        <div class="setting-row">
+          <label>Delete After Upload</label>
+          <select id="s-camera-delete-after-upload">
+            <option value="false">No — keep images on camera</option>
+            <option value="true">Yes — delete from camera after successful upload</option>
+          </select>
+        </div>
+        <div style="padding:10px 14px 12px;border-top:1px solid var(--md-outline-variant)">
+          <button class="btn btn-outlined" id="btn-pair-camera" style="font-size:12px;padding:7px 14px">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/><path d="M15 3.5A6.5 6.5 0 0 1 21.5 10H23a8 8 0 0 0-8-8v1.5zm0 3A3.5 3.5 0 0 1 18.5 10H20a5 5 0 0 0-5-5v1.5zM9 3.5V2a8 8 0 0 0-8 8h1.5A6.5 6.5 0 0 1 9 3.5z"/></svg>
+            Detect Cameras on LAN
+          </button>
+        </div>
+      </div>
+      <!-- Upload + backend config in one card -->
+      <div class="settings-section">
+        <h3>Upload</h3>
+        <div class="setting-row"><label>Workers</label><input id="s-upload-workers" type="number" min="1" max="16" placeholder="1"></div>
+        <div class="setting-row">
+          <label>Backend</label>
+          <select id="s-upload-backend">
+            <option value="smb">SMB (Samba / Windows Share)</option>
+            <option value="ftp">FTP / FTPS</option>
+            <option value="s3">AWS S3</option>
+            <option value="azure">Azure Blob Storage</option>
+            <option value="gcs">Google Cloud Storage</option>
+          </select>
+        </div>
+        <!-- SMB -->
+        <div class="backend-rows" id="br-smb">
+          <div class="setting-subheader">SMB Options</div>
+          <div class="setting-row"><label>Host</label><input id="s-smb-host" placeholder="192.168.2.9"></div>
+          <div class="setting-row"><label>Share</label><input id="s-smb-share" placeholder="downloads"></div>
+          <div class="setting-row"><label>Username</label><input id="s-smb-user" placeholder="user"></div>
+          <div class="setting-row"><label>Password</label><input id="s-smb-pass" type="password" placeholder="••••••••"></div>
+          <div class="setting-row"><label>Path</label><input id="s-smb-path" placeholder="/photos"></div>
+        </div>
+        <!-- FTP -->
+        <div class="backend-rows" id="br-ftp">
+          <div class="setting-subheader">FTP Options</div>
+          <div class="setting-row"><label>Host</label><input id="s-ftp-host"></div>
+          <div class="setting-row"><label>Port</label><input id="s-ftp-port" type="number" placeholder="21"></div>
+          <div class="setting-row"><label>Username</label><input id="s-ftp-user"></div>
+          <div class="setting-row"><label>Password</label><input id="s-ftp-pass" type="password"></div>
+          <div class="setting-row"><label>Use TLS</label>
+            <select id="s-ftp-tls"><option value="false">No</option><option value="true">Yes</option></select>
+          </div>
+          <div class="setting-row"><label>Path</label><input id="s-ftp-path" placeholder="/"></div>
+        </div>
+        <!-- S3 -->
+        <div class="backend-rows" id="br-s3">
+          <div class="setting-subheader">S3 Options</div>
+          <div class="setting-row"><label>Bucket</label><input id="s-s3-bucket"></div>
+          <div class="setting-row"><label>Region</label><input id="s-s3-region" placeholder="us-east-1"></div>
+          <div class="setting-row"><label>Prefix</label><input id="s-s3-prefix" placeholder="photos/"></div>
+          <div class="setting-row"><label>Access Key</label><input id="s-s3-key"></div>
+          <div class="setting-row"><label>Secret Key</label><input id="s-s3-secret" type="password"></div>
+        </div>
+        <!-- Azure -->
+        <div class="backend-rows" id="br-azure">
+          <div class="setting-subheader">Azure Blob Options</div>
+          <div class="setting-row"><label>Account</label><input id="s-azure-account"></div>
+          <div class="setting-row"><label>Container</label><input id="s-azure-container"></div>
+          <div class="setting-row"><label>Prefix</label><input id="s-azure-prefix"></div>
+          <div class="setting-row"><label>SAS Token</label><input id="s-azure-sas" type="password"></div>
+        </div>
+        <!-- GCS -->
+        <div class="backend-rows" id="br-gcs">
+          <div class="setting-subheader">GCS Options</div>
+          <div class="setting-row"><label>Bucket</label><input id="s-gcs-bucket"></div>
+          <div class="setting-row"><label>Prefix</label><input id="s-gcs-prefix"></div>
+          <div class="setting-row"><label>Credentials File</label><input id="s-gcs-creds" placeholder="/path/to/key.json"></div>
+        </div>
+      </div>
+      <!-- Log Stream -->
+      <div class="settings-section">
+        <h3>Live Log Stream</h3>
+        <div class="log-viewer-toolbar">
+          <button class="btn btn-outlined" id="btn-log-connect" style="font-size:12px;padding:7px 14px">Connect</button>
+          <button class="btn btn-tonal" id="btn-log-clear" style="font-size:12px;padding:7px 14px">Clear</button>
+          <span id="log-status" style="font-size:11px;color:var(--md-on-surface-variant);margin-left:4px"></span>
+        </div>
+        <pre id="log-viewer-box"></pre>
+      </div>
+      <div class="settings-footer">
+        <button class="btn btn-tonal" id="btn-save-settings">Save</button>
+        <button class="btn btn-filled" id="btn-save-restart">
+          <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 0 0-8 8 8 8 0 0 0 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 0 1-6-6 6 6 0 0 1 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          Save &amp; Restart
+        </button>
+      </div>
+      </div><!-- /#settings-scroll -->
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <nav id="nav">
+    <button class="nav-item active" data-page="library">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+      </span>
+      Library
+    </button>
+    <button class="nav-item" data-page="queue">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+      </span>
+      Queue
+    </button>
+    <button class="nav-item" data-page="settings">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54a7.4 7.4 0 0 0-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.47.47 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54a7.4 7.4 0 0 0 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 0 1 8.4 12 3.6 3.6 0 0 1 12 8.4a3.6 3.6 0 0 1 3.6 3.6 3.6 3.6 0 0 1-3.6 3.6z"/></svg>
+      </span>
+      Settings
+    </button>
+  </nav>
 </div>
 
-<main>
-  <div id="grid"></div>
-  <p id="empty-msg" style="display:none">No images detected yet. Waiting for camera…</p>
-</main>
-
-<div id="modal-backdrop">
-  <div id="modal">
-    <button id="modal-close" title="Close">✕</button>
-    <img id="modal-img" src="" alt="preview" />
+<!-- Camera pairing wizard -->
+<div id="wizard-overlay">
+  <div class="wizard-card">
+    <div class="wizard-header">
+      <h2>Detect Cameras on LAN</h2>
+      <button class="wizard-close" id="wizard-close-btn" title="Close">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div class="wizard-body">
+      <!-- Step 1: scanning -->
+      <div class="wizard-step active" id="wstep-scanning">
+        <p class="wizard-desc">Scanning your local network for PTP/IP cameras on port 15740. This may take up to 20 seconds.</p>
+        <div class="wizard-scan-status">
+          <div class="wizard-spinner"></div>
+          <span>Scanning…</span>
+        </div>
+      </div>
+      <!-- Step 2: results -->
+      <div class="wizard-step" id="wstep-results">
+        <p class="wizard-desc" id="wizard-result-desc">Select a camera to use:</p>
+        <div class="camera-list" id="camera-list"></div>
+      </div>
+    </div>
+    <div class="wizard-footer">
+      <button class="btn btn-text" id="wizard-cancel-btn">Cancel</button>
+      <button class="btn btn-tonal" id="wizard-rescan-btn" style="display:none">Scan Again</button>
+      <button class="btn btn-filled" id="wizard-select-btn" disabled>Use Selected Camera</button>
+    </div>
   </div>
 </div>
 
+<!-- Restart overlay -->
+<div id="restart-overlay">
+  <div class="restart-card">
+    <div class="restart-spinner"></div>
+    <p>Restarting…</p>
+    <small id="restart-note">Reconnecting to server</small>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <img id="modal-img" src="" alt="Preview">
+</div>
+<div id="toast"></div>
+
 <script>
-(() => {
-  const REFRESH_MS = 4000;
+// ============================================================
+//  State
+// ============================================================
+let images = [];          // [{filename, url, status, retry_count, error, detected_at, next_retry_at}]
+let activeFilter = 'all';
+let activeView = 'flat'; // 'flat' | 'date' | 'timeline'
+let selectedFiles = new Set();
+let settings = {};
+let isPaused = false;
 
-  const grid       = document.getElementById('grid');
-  const emptyMsg   = document.getElementById('empty-msg');
-  const statusBar  = document.getElementById('status-bar');
-  const countLabel = document.getElementById('count-label');
-  const btnSel     = document.getElementById('btn-push-selected');
-  const btnAll     = document.getElementById('btn-push-all');
-  const selAll     = document.getElementById('select-all');
-  const backdrop   = document.getElementById('modal-backdrop');
-  const modalImg   = document.getElementById('modal-img');
+// ============================================================
+//  Navigation
+// ============================================================
+const pages = document.querySelectorAll('.page');
+const navItems = document.querySelectorAll('.nav-item');
 
-  // State: filename -> {entry, card element, checkbox}
-  const state = new Map();
-  let selected = new Set();
+navItems.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.page;
+    navItems.forEach(n => n.classList.toggle('active', n.dataset.page === p));
+    pages.forEach(pg => pg.classList.toggle('active', pg.id === 'page-' + p));
+    if (p === 'queue') renderQueuePage();
+    if (p === 'settings') loadSettings();
+  });
+});
 
-  // ── Fetch & render ────────────────────────────────────────────
-  async function refresh() {
-    let images;
-    try {
-      const r = await fetch('/api/images');
-      if (!r.ok) throw new Error(r.statusText);
-      images = await r.json();
-      statusBar.textContent = `Last refresh: ${new Date().toLocaleTimeString()}`;
-    } catch (e) {
-      statusBar.textContent = `⚠ Connection error: ${e.message}`;
-      return;
-    }
+// ============================================================
+//  SSE + Data Fetching
+// ============================================================
+let sseConnected = false;
 
-    if (!images || images.length === 0) {
-      emptyMsg.style.display = '';
-      updateCounts(images || []);
-      return;
-    }
-    emptyMsg.style.display = 'none';
+function connectSSE() {
+  const es = new EventSource('/api/events');
+  es.addEventListener('update', () => fetchImages());
+  es.onopen = () => { sseConnected = true; updateConnChip(true); };
+  es.onerror = () => { sseConnected = false; updateConnChip(false); };
+}
 
-    // Update existing cards & add new ones
-    for (const img of images) {
-      if (state.has(img.filename)) {
-        updateCard(img);
+function updateConnChip(online) {
+  const chip = document.getElementById('conn-chip');
+  const label = document.getElementById('conn-label');
+  chip.classList.toggle('online', online);
+  label.textContent = online ? 'Connected' : 'Offline';
+}
+
+async function fetchImages() {
+  try {
+    const res = await fetch('/api/images');
+    if (!res.ok) return;
+    images = await res.json();
+    renderLibrary();
+    renderQueuePage();
+    fetchQueueStatus();
+  } catch(e) { /* ignore */ }
+}
+
+async function fetchQueueStatus() {
+  try {
+    const res = await fetch('/api/queue/status');
+    if (!res.ok) return;
+    const data = await res.json();
+    isPaused = data.paused;
+    updatePauseBtn();
+  } catch(e) {}
+}
+
+// ============================================================
+//  Library Page
+// ============================================================
+function renderLibrary() {
+  const grid = document.getElementById('card-grid');
+  const tlEl = document.getElementById('timeline');
+  const empty = document.getElementById('library-empty');
+
+  // Counts
+  const counts = {all:0, discovered:0, queued:0, uploading:0, done:0, failed:0};
+  images.forEach(img => { counts.all++; counts[img.status] = (counts[img.status]||0)+1; });
+  ['all','discovered','queued','uploading','done','failed'].forEach(k => {
+    const el = document.getElementById('cnt-' + k);
+    if (el) el.textContent = counts[k]||0;
+  });
+
+  // Progress bar
+  const total = images.length;
+  const done = counts.done || 0;
+  document.getElementById('progress-fill').style.width = total > 0 ? (done/total*100)+'%' : '0%';
+
+  const visibleImages = activeFilter === 'all' ? images : images.filter(i => i.status === activeFilter);
+
+  if (activeView === 'timeline') {
+    grid.style.display = 'none';
+    tlEl.classList.add('open');
+    renderTimeline(tlEl, visibleImages);
+    empty.style.display = visibleImages.length === 0 ? 'flex' : 'none';
+    updateSelectionBar();
+    return;
+  }
+
+  // grid is visible for flat/date views
+  grid.style.display = '';
+  tlEl.classList.remove('open');
+  tlEl.innerHTML = '';
+
+  if (activeView === 'flat') {
+    const existing = new Map();
+    grid.querySelectorAll('.img-card').forEach(c => existing.set(c.dataset.file, c));
+    grid.querySelectorAll('.group-header').forEach(h => h.remove());
+
+    visibleImages.forEach(img => {
+      let card = existing.get(img.filename);
+      if (!card) {
+        card = buildCard(img);
+        grid.appendChild(card);
       } else {
-        addCard(img);
+        updateCard(card, img);
+        existing.delete(img.filename);
       }
-    }
-
-    updateCounts(images);
-  }
-
-  function addCard(img) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.dataset.filename = img.filename;
-
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.className = 'card-check';
-    cb.disabled = img.status !== 'pending';
-    cb.addEventListener('change', () => {
-      if (cb.checked) selected.add(img.filename);
-      else selected.delete(img.filename);
-      card.classList.toggle('selected', cb.checked);
-      syncSelAll();
-      updateButtonState();
+      card.classList.remove('hidden');
     });
-
-    const imgWrap = document.createElement('div');
-    imgWrap.className = 'card-img-wrap';
-    const thumbUrl = `/api/images/${encodeURIComponent(img.filename)}/thumb`;
-    const thumbEl = document.createElement('img');
-    thumbEl.src = thumbUrl;
-    thumbEl.alt = img.filename;
-    thumbEl.loading = 'lazy';
-    thumbEl.onerror = () => {
-      imgWrap.innerHTML = '<span class="no-thumb">🖼</span>';
-    };
-    thumbEl.addEventListener('click', () => openModal(thumbUrl));
-    imgWrap.appendChild(thumbEl);
-
-    const body = document.createElement('div');
-    body.className = 'card-body';
-
-    const nameEl = document.createElement('div');
-    nameEl.className = 'card-name';
-    nameEl.title = img.filename;
-    nameEl.textContent = img.filename;
-
-    const badgeEl = document.createElement('span');
-    badgeEl.className = `badge badge-${img.status}`;
-    badgeEl.textContent = img.status;
-
-    const timeEl = document.createElement('div');
-    timeEl.className = 'card-time';
-    timeEl.textContent = new Date(img.detected_at).toLocaleString();
-
-    body.appendChild(nameEl);
-    body.appendChild(badgeEl);
-    body.appendChild(timeEl);
-
-    if (img.error) {
-      const errEl = document.createElement('div');
-      errEl.className = 'card-error';
-      errEl.textContent = img.error;
-      body.appendChild(errEl);
-    }
-
-    card.appendChild(cb);
-    card.appendChild(imgWrap);
-    card.appendChild(body);
-    grid.appendChild(card);
-
-    state.set(img.filename, { img, card, cb, badgeEl, body });
-  }
-
-  function updateCard(img) {
-    const s = state.get(img.filename);
-    if (!s) return;
-    s.img = img;
-    s.badgeEl.className = `badge badge-${img.status}`;
-    s.badgeEl.textContent = img.status;
-    s.cb.disabled = img.status !== 'pending';
-    if (img.status !== 'pending') {
-      selected.delete(img.filename);
-      s.cb.checked = false;
-      s.card.classList.remove('selected');
-    }
-    // Update or remove error
-    let errEl = s.body.querySelector('.card-error');
-    if (img.error) {
-      if (!errEl) {
-        errEl = document.createElement('div');
-        errEl.className = 'card-error';
-        s.body.appendChild(errEl);
+    existing.forEach(c => {
+      if (activeFilter !== 'all') { c.classList.add('hidden'); }
+      else { c.remove(); }
+    });
+  } else {
+    // By-date grouping
+    grid.innerHTML = '';
+    const sorted = [...visibleImages].sort((a, b) => {
+      const ta = a.captured_at ? new Date(a.captured_at).getTime() : 0;
+      const tb = b.captured_at ? new Date(b.captured_at).getTime() : 0;
+      return tb - ta;
+    });
+    let lastDay = null;
+    sorted.forEach(img => {
+      const day = img.captured_at ? fmtDay(img.captured_at) : 'Unknown date';
+      if (day !== lastDay) {
+        lastDay = day;
+        const hdr = document.createElement('div');
+        hdr.className = 'group-header';
+        hdr.textContent = day;
+        grid.appendChild(hdr);
       }
-      errEl.textContent = img.error;
-    } else if (errEl) {
-      errEl.remove();
-    }
+      grid.appendChild(buildCard(img));
+    });
   }
 
-  function updateCounts(images) {
-    const pending = images.filter(i => i.status === 'pending').length;
-    countLabel.textContent = `${images.length} image${images.length !== 1 ? 's' : ''} · ${pending} pending`;
-    btnAll.disabled = pending === 0;
-    updateButtonState();
-  }
+  empty.style.display = visibleImages.length === 0 ? 'flex' : 'none';
+  updateSelectionBar();
+}
 
-  function updateButtonState() {
-    btnSel.disabled = selected.size === 0;
-  }
-
-  function syncSelAll() {
-    const allPending = [...state.values()].filter(s => s.img.status === 'pending');
-    selAll.checked = allPending.length > 0 && allPending.every(s => selected.has(s.img.filename));
-    selAll.indeterminate = !selAll.checked && selected.size > 0;
-  }
-
-  // ── Select all ────────────────────────────────────────────────
-  selAll.addEventListener('change', () => {
-    for (const [, s] of state) {
-      if (s.img.status !== 'pending') continue;
-      s.cb.checked = selAll.checked;
-      s.card.classList.toggle('selected', selAll.checked);
-      if (selAll.checked) selected.add(s.img.filename);
-      else selected.delete(s.img.filename);
-    }
-    updateButtonState();
+function renderTimeline(container, imgs) {
+  // Group by day (descending)
+  const groups = new Map();
+  const sorted = [...imgs].sort((a, b) => {
+    const ta = a.captured_at ? new Date(a.captured_at).getTime() : 0;
+    const tb = b.captured_at ? new Date(b.captured_at).getTime() : 0;
+    return tb - ta;
+  });
+  sorted.forEach(img => {
+    const key = img.captured_at
+      ? new Date(img.captured_at).toLocaleDateString('en-CA') // YYYY-MM-DD stable key
+      : 'unknown';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(img);
   });
 
-  // ── Push selected ─────────────────────────────────────────────
-  btnSel.addEventListener('click', async () => {
-    if (selected.size === 0) return;
-    const filenames = [...selected];
-    try {
-      const r = await fetch('/api/images/push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filenames }),
+  // Reconcile existing tl-day nodes by key
+  const existingDays = new Map();
+  container.querySelectorAll('.tl-day[data-day]').forEach(el => existingDays.set(el.dataset.day, el));
+
+  // Remove days no longer present
+  existingDays.forEach((el, key) => { if (!groups.has(key)) el.remove(); });
+
+  let insertBefore = null; // track insertion order
+
+  for (const [key, dayImgs] of groups) {
+    let dayEl = existingDays.get(key);
+    if (!dayEl) {
+      dayEl = document.createElement('div');
+      dayEl.className = 'tl-day';
+      dayEl.dataset.day = key;
+
+      const node = document.createElement('div');
+      node.className = 'tl-day__node';
+      const dot = document.createElement('span');
+      dot.className = 'tl-day__dot';
+      const label = document.createElement('span');
+      label.className = 'tl-day__label';
+      label.textContent = key === 'unknown' ? 'Unknown date'
+        : new Date(key + 'T12:00:00').toLocaleDateString(undefined, {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+      const count = document.createElement('span');
+      count.className = 'tl-day__count';
+      node.append(dot, label, count);
+
+      const strip = document.createElement('div');
+      strip.className = 'tl-day__photos';
+
+      dayEl.append(node, strip);
+      if (insertBefore) {
+        container.insertBefore(dayEl, insertBefore.nextSibling);
+      } else {
+        container.prepend(dayEl);
+      }
+    }
+
+    // Update count badge
+    const countEl = dayEl.querySelector('.tl-day__count');
+    if (countEl) countEl.textContent = `· ${dayImgs.length}`;
+
+    // Reconcile photo strip
+    const strip = dayEl.querySelector('.tl-day__photos');
+    const existingCards = new Map();
+    strip.querySelectorAll('.tl-card[data-file]').forEach(c => existingCards.set(c.dataset.file, c));
+
+    dayImgs.forEach(img => {
+      let tc = existingCards.get(img.filename);
+      if (!tc) {
+        tc = buildTlCard(img);
+        strip.appendChild(tc);
+      } else {
+        updateTlCard(tc, img);
+        existingCards.delete(img.filename);
+      }
+    });
+    existingCards.forEach(c => c.remove());
+
+    insertBefore = dayEl;
+  }
+}
+
+function fmtDay(iso) {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  } catch { return 'Unknown date'; }
+}
+
+function fmtTime(iso) {
+  try {
+    return new Date(iso).toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
+  } catch { return ''; }
+}
+
+function buildTlCard(img) {
+  const tc = document.createElement('div');
+  tc.className = 'tl-card' + (img.is_video ? ' video' : '');
+  tc.dataset.file = img.filename;
+  if (img.captured_at) tc.dataset.capturedAt = img.captured_at;
+
+  const thumb = document.createElement('img');
+  thumb.alt = img.filename;
+  thumb.loading = 'lazy';
+
+  const timeEl = document.createElement('div');
+  timeEl.className = 'tl-card__time';
+  timeEl.textContent = img.is_video
+    ? (img.captured_at ? '▶ ' + fmtTime(img.captured_at) : '▶ VIDEO')
+    : (img.captured_at ? fmtTime(img.captured_at) : img.filename);
+
+  const statusEl = document.createElement('div');
+  statusEl.className = `tl-card__status status-${img.status}`;
+  statusEl.textContent = fmtStatus(img.status);
+
+  const chk = document.createElement('div');
+  chk.className = 'tl-card__check';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.title = 'Select';
+  chk.appendChild(cb);
+
+  tc.append(thumb, timeEl, statusEl, chk);
+
+  if (img.is_video) {
+    const playOverlay = document.createElement('div');
+    playOverlay.className = 'tl-card__play';
+    playOverlay.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+    tc.appendChild(playOverlay);
+  }
+
+  // Lazy load thumbnail (Canon embeds JPEG thumbs in MOV via PTP too)
+  const obs = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) {
+      thumb.src = '/api/images/' + encodeURIComponent(img.filename) + '/thumb';
+      obs.disconnect();
+    }
+  }, {threshold: 0.1});
+  obs.observe(tc);
+
+  chk.addEventListener('click', e => { e.stopPropagation(); toggleSelect(img.filename, tc); });
+  tc.addEventListener('click', e => {
+    if (e.target.closest('.tl-card__check')) return;
+    openModal(img.filename);
+  });
+
+  if (selectedFiles.has(img.filename)) tc.classList.add('selected');
+  return tc;
+}
+
+function updateTlCard(tc, img) {
+  tc.dataset.status = img.status;
+  tc.classList.toggle('uploading', img.status === 'uploading');
+  tc.classList.toggle('selected', selectedFiles.has(img.filename));
+  const s = tc.querySelector('.tl-card__status');
+  if (s) { s.className = `tl-card__status status-${img.status}`; s.textContent = fmtStatus(img.status); }
+}
+
+
+function buildCard(img) {
+  const card = document.createElement('div');
+  card.className = 'img-card';
+  card.dataset.file = img.filename;
+  card.dataset.status = img.status;
+  if (img.captured_at) card.dataset.capturedAt = img.captured_at;
+
+  const videoOverlay = img.is_video
+    ? `<div class="img-card__video-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+    <span class="img-card__video-badge">VIDEO</span>`
+    : '';
+
+  card.innerHTML = `
+    <div class="img-card__check"><input type="checkbox" title="Select"></div>
+    <img class="img-card__thumb" src="" alt="" loading="lazy">
+    <div class="img-card__overlay"></div>
+    ${videoOverlay}
+    <span class="img-card__name">${escHtml(img.filename)}</span>
+    <span class="img-card__status status-${img.status}">${fmtStatus(img.status)}</span>
+    <span class="img-card__date">${img.captured_at ? fmtTime(img.captured_at) : ''}</span>
+    <button class="img-card__dl" title="Download original"><svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zm7-18v12.17l-4.59-4.58L6 11l6 6 6-6-1.41-1.41L13 14.17V2h-2z"/></svg></button>`;
+
+  card.querySelector('.img-card__check').addEventListener('click', e => {
+    e.stopPropagation();
+    toggleSelect(img.filename, card);
+  });
+
+  card.querySelector('.img-card__dl').addEventListener('click', e => {
+    e.stopPropagation();
+    downloadSingle(img.filename);
+  });
+
+  card.addEventListener('click', e => {
+    if (e.target.closest('.img-card__check')) return;
+    if (e.target.closest('.img-card__dl')) return;
+    openModal(img.filename);
+  });
+
+  updateCard(card, img);
+  lazyLoadThumb(card, img.filename);
+  return card;
+}
+
+function updateCard(card, img) {
+  card.dataset.status = img.status;
+  card.classList.toggle('uploading', img.status === 'uploading');
+  card.classList.toggle('selected', selectedFiles.has(img.filename));
+  const statusEl = card.querySelector('.img-card__status');
+  if (statusEl) {
+    statusEl.className = `img-card__status status-${img.status}`;
+    statusEl.textContent = img.status === 'queued' && img.retry_count > 0
+      ? `Retry ${img.retry_count}`
+      : fmtStatus(img.status);
+  }
+  // Inject video overlay if not already present
+  if (img.is_video && !card.querySelector('.img-card__video-play')) {
+    const playDiv = document.createElement('div');
+    playDiv.className = 'img-card__video-play';
+    playDiv.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+    const badge = document.createElement('span');
+    badge.className = 'img-card__video-badge';
+    badge.textContent = 'VIDEO';
+    card.appendChild(playDiv);
+    card.appendChild(badge);
+  }
+}
+
+function lazyLoadThumb(card, filename) {
+  const img = card.querySelector('.img-card__thumb');
+  const obs = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) {
+      img.src = '/api/images/' + encodeURIComponent(filename) + '/thumb';
+      obs.disconnect();
+    }
+  }, {threshold:0.1});
+  obs.observe(card);
+}
+
+function fmtStatus(s) {
+  const map = {discovered:'Discovered', queued:'Queued', uploading:'Uploading', done:'Done', failed:'Failed'};
+  return map[s] || s;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ============================================================
+//  Filter chips
+// ============================================================
+document.querySelectorAll('#filter-row .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#filter-row .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+    renderLibrary();
+  });
+});
+
+document.querySelectorAll('#view-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#view-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeView = btn.dataset.view;
+    renderLibrary();
+  });
+});
+
+// ============================================================
+//  Selection
+// ============================================================
+function toggleSelect(filename, card) {
+  if (selectedFiles.has(filename)) {
+    selectedFiles.delete(filename);
+    card.classList.remove('selected');
+    card.querySelector('input[type=checkbox]').checked = false;
+  } else {
+    selectedFiles.add(filename);
+    card.classList.add('selected');
+    card.querySelector('input[type=checkbox]').checked = true;
+  }
+  updateSelectionBar();
+}
+
+function updateSelectionBar() {
+  const bar = document.getElementById('selection-bar');
+  const count = selectedFiles.size;
+  bar.classList.toggle('visible', count > 0);
+  document.getElementById('sel-count').textContent = count + ' selected';
+}
+
+document.getElementById('btn-deselect').addEventListener('click', () => {
+  selectedFiles.clear();
+  document.querySelectorAll('.img-card, .tl-card').forEach(c => {
+    c.classList.remove('selected');
+    const cb = c.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = false;
+  });
+  updateSelectionBar();
+});
+
+// ---- Download helpers ----
+function downloadSingle(filename) {
+  const a = document.createElement('a');
+  a.href = `/api/images/${encodeURIComponent(filename)}/download`;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+async function downloadSelected() {
+  const filenames = [...selectedFiles];
+  if (filenames.length === 0) return;
+  if (filenames.length === 1) {
+    downloadSingle(filenames[0]);
+    return;
+  }
+  const statusEl = toastPersist('Connecting…');
+  try {
+    const res = await fetch('/api/images/download', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({filenames})
+    });
+    if (!res.ok) { toastDismiss(); toast('Download failed'); return; }
+    const reader = res.body.getReader();
+    const chunks = [];
+    let received = 0;
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      statusEl.textContent = `Downloading ZIP… ${(received / 1048576).toFixed(1)} MB`;
+    }
+    statusEl.textContent = 'Saving…';
+    const blob = new Blob(chunks, {type: 'application/zip'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'canon-images.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toastDismiss();
+    toast(`Downloaded ${filenames.length} images`);
+  } catch(e) { toastDismiss(); toast('Download error'); }
+}
+
+document.getElementById('btn-download-selected').addEventListener('click', downloadSelected);
+
+document.getElementById('btn-queue-selected').addEventListener('click', async () => {
+  if (selectedFiles.size === 0) return;
+  const filenames = [...selectedFiles];
+  try {
+    const res = await fetch('/api/images/queue', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({filenames})
+    });
+    if (res.ok || res.status === 204) {
+      toast('Queued ' + filenames.length + ' image(s)');
+      selectedFiles.clear();
+      updateSelectionBar();
+      fetchImages();
+    }
+  } catch(e) { toast('Error queuing images'); }
+});
+
+document.getElementById('btn-queue-all').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/api/images/queue-all', {method:'POST'});
+    if (res.ok || res.status === 204) {
+      const discovered = images.filter(i => i.status === 'discovered').length;
+      toast(discovered > 0 ? 'Queued all discovered images' : 'Nothing to queue');
+      fetchImages();
+    }
+  } catch(e) { toast('Error queuing images'); }
+});
+
+// ============================================================
+//  Queue Page
+// ============================================================
+function renderQueuePage() {
+  if (!document.getElementById('page-queue').classList.contains('active')) return;
+
+  const list = document.getElementById('queue-list');
+  const statsEl = document.getElementById('queue-stats');
+
+  const grouped = {uploading:[], queued:[], failed:[], done:[]};
+  images.forEach(img => {
+    if (['uploading','queued','failed','done'].includes(img.status)) {
+      grouped[img.status].push(img);
+    }
+  });
+
+  const total = images.length;
+  const done = (grouped.done||[]).length;
+  const uploading = (grouped.uploading||[]).length;
+  const queued = (grouped.queued||[]).length;
+  const failed = (grouped.failed||[]).length;
+
+  statsEl.innerHTML = `
+    <span>📤 Uploading: <b>${uploading}</b></span>
+    <span>⏳ Queued: <b>${queued}</b></span>
+    <span>✅ Done: <b>${done}</b></span>
+    <span>❌ Failed: <b>${failed}</b></span>`;
+
+  let html = '';
+  if (uploading + queued + failed + done === 0) {
+    html = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg><p>Queue is empty. Select images in Library to start uploading.</p></div>';
+  } else {
+    const renderSection = (items, label) => {
+      if (!items.length) return '';
+      let s = `<div class="section-label">${label}</div>`;
+      items.forEach(img => {
+        const retry = img.retry_count > 0 ? ` · Attempt ${img.retry_count+1}/4` : '';
+        const err = img.error ? `<span style="color:var(--md-error);font-size:10px">${escHtml(img.error.substring(0,80))}</span>` : '';
+        s += `<div class="queue-item">
+          <img class="queue-item__thumb" src="/api/images/${encodeURIComponent(img.filename)}/thumb" onerror="this.style.display='none'" loading="lazy">
+          <div class="queue-item__info">
+            <div class="queue-item__name">${escHtml(img.filename)}</div>
+            <div class="queue-item__meta">${fmtStatus(img.status)}${retry} ${err}</div>
+          </div>
+          <span class="img-card__status status-${img.status}" style="flex-shrink:0">${fmtStatus(img.status)}</span>
+        </div>`;
       });
-      if (!r.ok) { const t = await r.text(); throw new Error(t); }
-    } catch (e) {
-      alert(`Push failed: ${e.message}`);
-    }
-    selected.clear();
-    selAll.checked = false;
-    selAll.indeterminate = false;
-    updateButtonState();
-    await refresh();
-  });
-
-  // ── Push all ──────────────────────────────────────────────────
-  btnAll.addEventListener('click', async () => {
-    try {
-      const r = await fetch('/api/images/push-all', { method: 'POST' });
-      if (!r.ok) { const t = await r.text(); throw new Error(t); }
-    } catch (e) {
-      alert(`Push all failed: ${e.message}`);
-    }
-    selected.clear();
-    updateButtonState();
-    await refresh();
-  });
-
-  // ── Modal ─────────────────────────────────────────────────────
-  function openModal(src) {
-    modalImg.src = src;
-    backdrop.classList.add('open');
+      return s;
+    };
+    html += renderSection(grouped.uploading, 'Uploading');
+    html += renderSection(grouped.queued, 'Queued');
+    html += renderSection(grouped.failed, 'Failed');
+    html += renderSection(grouped.done, 'Done');
   }
-  document.getElementById('modal-close').addEventListener('click', () => {
-    backdrop.classList.remove('open');
-    modalImg.src = '';
-  });
-  backdrop.addEventListener('click', e => {
-    if (e.target === backdrop) {
-      backdrop.classList.remove('open');
-      modalImg.src = '';
-    }
-  });
+  list.innerHTML = html;
+}
 
-  // ── Poll ──────────────────────────────────────────────────────
-  refresh();
-  setInterval(refresh, REFRESH_MS);
+// ============================================================
+//  Queue Controls
+// ============================================================
+function updatePauseBtn() {
+  const icon = document.getElementById('pause-icon');
+  const label = document.getElementById('pause-label');
+  if (isPaused) {
+    icon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    label.textContent = 'Resume';
+  } else {
+    icon.innerHTML = '<path d="M6 19h4V5H6zm8-14v14h4V5z"/>';
+    label.textContent = 'Pause';
+  }
+}
+
+document.getElementById('btn-pause').addEventListener('click', async () => {
+  const endpoint = isPaused ? '/api/queue/resume' : '/api/queue/pause';
+  try {
+    await fetch(endpoint, {method:'POST'});
+    isPaused = !isPaused;
+    updatePauseBtn();
+    toast(isPaused ? 'Queue paused' : 'Queue resumed');
+  } catch(e) {}
+});
+
+document.getElementById('btn-retry-failed').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/api/images/retry-failed', {method:'POST'});
+    if (res.ok || res.status === 204) { toast('Retrying failed images'); fetchImages(); }
+  } catch(e) {}
+});
+
+document.getElementById('btn-clear-queue').addEventListener('click', async () => {
+  try {
+    await fetch('/api/queue/clear', {method:'POST'});
+    toast('Queue cleared');
+    fetchImages();
+  } catch(e) {}
+});
+
+// ============================================================
+//  Settings Page
+// ============================================================
+const backendSections = {smb:'br-smb', ftp:'br-ftp', s3:'br-s3', azure:'br-azure', gcs:'br-gcs'};
+
+document.getElementById('s-upload-backend').addEventListener('change', function() {
+  Object.values(backendSections).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('visible');
+  });
+  const sec = backendSections[this.value];
+  if (sec) document.getElementById(sec).classList.add('visible');
+});
+
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    if (!res.ok) return;
+    settings = await res.json();
+    applySettingsToForm(settings);
+  } catch(e) {}
+}
+
+function applySettingsToForm(s) {
+  const set = (id, key, def) => {
+    const el = document.getElementById(id);
+    if (el) el.value = s[key] !== undefined ? s[key] : (def||'');
+  };
+  set('s-camera-host',   'camera.host', '');
+  set('s-camera-port',   'camera.port', '15740');
+  set('s-camera-listen', 'camera.listen_addr', '');
+  set('s-camera-poll',   'camera.poll_interval', '5s');
+  set('s-camera-delete-after-upload', 'camera.delete_after_upload', 'false');
+  set('s-upload-workers','upload.workers', '1');
+  set('s-upload-backend','upload.backend', 'smb');
+  set('s-smb-host',  'smb.host', '');
+  set('s-smb-share', 'smb.share', '');
+  set('s-smb-user',  'smb.username', '');
+  set('s-smb-path',  'smb.path', '/');
+  set('s-ftp-host',  'ftp.host', '');
+  set('s-ftp-port',  'ftp.port', '21');
+  set('s-ftp-user',  'ftp.username', '');
+  set('s-ftp-tls',   'ftp.tls', 'false');
+  set('s-ftp-path',  'ftp.path', '/');
+  set('s-s3-bucket', 's3.bucket', '');
+  set('s-s3-region', 's3.region', '');
+  set('s-s3-prefix', 's3.prefix', '');
+  set('s-s3-key',    's3.access_key', '');
+  set('s-azure-account',   'azure.account', '');
+  set('s-azure-container', 'azure.container', '');
+  set('s-azure-prefix',    'azure.prefix', '');
+  set('s-gcs-bucket', 'gcs.bucket', '');
+  set('s-gcs-prefix', 'gcs.prefix', '');
+  set('s-gcs-creds',  'gcs.credentials_file', '');
+  // Show relevant backend section
+  const backend = s['upload.backend'] || 'smb';
+  document.getElementById('s-upload-backend').value = backend;
+  document.getElementById('s-upload-backend').dispatchEvent(new Event('change'));
+}
+
+function collectSettingsFromForm() {
+  const get = id => document.getElementById(id)?.value?.trim() || '';
+  return {
+    'camera.host': get('s-camera-host'),
+    'camera.port': get('s-camera-port'),
+    'camera.listen_addr': get('s-camera-listen'),
+    'camera.poll_interval': get('s-camera-poll'),
+    'camera.delete_after_upload': get('s-camera-delete-after-upload'),
+    'upload.workers': get('s-upload-workers'),
+    'upload.backend': get('s-upload-backend'),
+    'smb.host': get('s-smb-host'),
+    'smb.share': get('s-smb-share'),
+    'smb.username': get('s-smb-user'),
+    'smb.password': document.getElementById('s-smb-pass')?.value || '',
+    'smb.path': get('s-smb-path'),
+    'ftp.host': get('s-ftp-host'),
+    'ftp.port': get('s-ftp-port'),
+    'ftp.username': get('s-ftp-user'),
+    'ftp.password': document.getElementById('s-ftp-pass')?.value || '',
+    'ftp.tls': get('s-ftp-tls'),
+    'ftp.path': get('s-ftp-path'),
+    's3.bucket': get('s-s3-bucket'),
+    's3.region': get('s-s3-region'),
+    's3.prefix': get('s-s3-prefix'),
+    's3.access_key': get('s-s3-key'),
+    's3.secret_key': document.getElementById('s-s3-secret')?.value || '',
+    'azure.account': get('s-azure-account'),
+    'azure.container': get('s-azure-container'),
+    'azure.prefix': get('s-azure-prefix'),
+    'azure.sas_token': document.getElementById('s-azure-sas')?.value || '',
+    'gcs.bucket': get('s-gcs-bucket'),
+    'gcs.prefix': get('s-gcs-prefix'),
+    'gcs.credentials_file': get('s-gcs-creds'),
+  };
+}
+
+async function saveSettings() {
+  const kv = collectSettingsFromForm();
+  const res = await fetch('/api/settings', {
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(kv)
+  });
+  if (!res.ok) throw new Error('save failed');
+  settings = await res.json();
+}
+
+document.getElementById('btn-save-settings').addEventListener('click', async () => {
+  try {
+    await saveSettings();
+    toast('Settings saved');
+  } catch(e) { toast('Failed to save settings'); }
+});
+
+document.getElementById('btn-save-restart').addEventListener('click', async () => {
+  try {
+    await saveSettings();
+  } catch(e) { toast('Failed to save settings'); return; }
+  try {
+    await fetch('/api/system/restart', {method:'POST'});
+  } catch(_) { /* ignore — process may exit before response completes */ }
+  showRestartOverlay();
+});
+
+// ── Log stream viewer ────────────────────────────────────────────────────────
+(function() {
+  let es = null; // EventSource
+  const box = document.getElementById('log-viewer-box');
+  const btn = document.getElementById('btn-log-connect');
+  const clr = document.getElementById('btn-log-clear');
+  const status = document.getElementById('log-status');
+  const MAX_LINES = 500;
+
+  function appendLine(line) {
+    const atBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 8;
+    box.textContent += line + '\n';
+    // trim excess lines
+    const lines = box.textContent.split('\n');
+    if (lines.length > MAX_LINES + 1) {
+      box.textContent = lines.slice(lines.length - MAX_LINES).join('\n');
+    }
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  }
+
+  function connect() {
+    if (es) return;
+    box.classList.add('open');
+    status.textContent = 'Connecting…';
+    btn.textContent = 'Disconnect';
+    es = new EventSource('/api/logs');
+    es.onopen = () => { status.textContent = 'Connected'; };
+    es.onmessage = (e) => { appendLine(e.data); };
+    es.onerror = () => {
+      status.textContent = 'Disconnected';
+      es.close(); es = null;
+      btn.textContent = 'Connect';
+    };
+  }
+
+  function disconnect() {
+    if (!es) return;
+    es.close(); es = null;
+    status.textContent = 'Disconnected';
+    btn.textContent = 'Connect';
+  }
+
+  btn.addEventListener('click', () => { if (es) disconnect(); else connect(); });
+  clr.addEventListener('click', () => { box.textContent = ''; });
 })();
+
+function showRestartOverlay() {
+  const overlay = document.getElementById('restart-overlay');
+  const note = document.getElementById('restart-note');
+  overlay.classList.add('open');
+  note.textContent = 'Reconnecting to server…';
+  let attempts = 0;
+  const poll = setInterval(async () => {
+    attempts++;
+    note.textContent = `Reconnecting… (${attempts})`;
+    try {
+      const r = await fetch('/api/images', {signal: AbortSignal.timeout(2000)});
+      if (r.ok) {
+        clearInterval(poll);
+        overlay.classList.remove('open');
+        toast('Restarted successfully');
+        fetchImages();
+        loadSettings();
+      }
+    } catch(_) {}
+  }, 2500);
+}
+
+// ============================================================
+//  Modal
+// ============================================================
+function openModal(filename) {
+  const overlay = document.getElementById('modal-overlay');
+  const img = document.getElementById('modal-img');
+  img.src = '/api/images/' + encodeURIComponent(filename) + '/thumb';
+  overlay.classList.add('open');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.remove('open');
+});
+
+// ============================================================
+//  Toast
+// ============================================================
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function toastPersist(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  return el;
+}
+
+function toastDismiss() {
+  const el = document.getElementById('toast');
+  clearTimeout(toastTimer);
+  el.classList.remove('show');
+}
+
+// ============================================================
+//  Camera Pairing Wizard
+// ============================================================
+let wizardSelectedCamera = null;
+
+function openWizard() {
+  wizardSelectedCamera = null;
+  document.getElementById('wizard-overlay').classList.add('open');
+  document.getElementById('wstep-scanning').classList.add('active');
+  document.getElementById('wstep-results').classList.remove('active');
+  document.getElementById('wizard-select-btn').disabled = true;
+  document.getElementById('wizard-rescan-btn').style.display = 'none';
+  startScan();
+}
+
+function closeWizard() {
+  document.getElementById('wizard-overlay').classList.remove('open');
+}
+
+async function startScan() {
+  document.getElementById('wstep-scanning').classList.add('active');
+  document.getElementById('wstep-results').classList.remove('active');
+  document.getElementById('wizard-rescan-btn').style.display = 'none';
+  document.getElementById('wizard-select-btn').disabled = true;
+  wizardSelectedCamera = null;
+  try {
+    const res = await fetch('/api/camera/scan', {method:'POST'});
+    const cameras = res.ok ? await res.json() : [];
+    showScanResults(cameras);
+  } catch(e) {
+    showScanResults([]);
+  }
+}
+
+function showScanResults(cameras) {
+  document.getElementById('wstep-scanning').classList.remove('active');
+  document.getElementById('wstep-results').classList.add('active');
+  document.getElementById('wizard-rescan-btn').style.display = '';
+
+  const list = document.getElementById('camera-list');
+  const desc = document.getElementById('wizard-result-desc');
+  list.innerHTML = '';
+
+  if (cameras.length === 0) {
+    desc.textContent = 'No cameras found on your local network.';
+    list.innerHTML = '<div class="wizard-empty">Make sure your camera is powered on, connected to the same WiFi network, and PTP/IP is enabled.</div>';
+    return;
+  }
+
+  desc.textContent = `Found ${cameras.length} camera${cameras.length > 1 ? 's' : ''}. Select one to pair with:`;
+
+  cameras.forEach(cam => {
+    const el = document.createElement('div');
+    el.className = 'camera-option';
+    el.innerHTML = `
+      <div class="camera-option__icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2m0 3a7 7 0 0 1 0 14A7 7 0 0 1 5 12a7 7 0 0 1 7-7m0 2a5 5 0 0 0 0 10A5 5 0 0 0 12 7m0 2a3 3 0 0 1 0 6 3 3 0 0 1 0-6z"/></svg>
+      </div>
+      <div class="camera-option__info">
+        <div class="camera-option__name">${escHtml(cam.name)}</div>
+        <div class="camera-option__ip">${escHtml(cam.ip)}:${cam.port}</div>
+      </div>
+      <div class="camera-option__check"></div>`;
+    el.addEventListener('click', () => {
+      list.querySelectorAll('.camera-option').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      wizardSelectedCamera = cam;
+      document.getElementById('wizard-select-btn').disabled = false;
+    });
+    list.appendChild(el);
+  });
+}
+
+document.getElementById('btn-pair-camera').addEventListener('click', openWizard);
+document.getElementById('wizard-close-btn').addEventListener('click', closeWizard);
+document.getElementById('wizard-cancel-btn').addEventListener('click', closeWizard);
+document.getElementById('wizard-rescan-btn').addEventListener('click', startScan);
+
+document.getElementById('wizard-select-btn').addEventListener('click', async () => {
+  if (!wizardSelectedCamera) return;
+  // Apply selected camera host/port into the settings form.
+  document.getElementById('s-camera-host').value = wizardSelectedCamera.ip;
+  document.getElementById('s-camera-port').value = wizardSelectedCamera.port;
+  closeWizard();
+  // Auto-save so the change is persisted immediately.
+  try {
+    await saveSettings();
+    toast(`Camera set to ${wizardSelectedCamera.ip}:${wizardSelectedCamera.port} — restart to connect`);
+  } catch(e) {
+    toast('Camera selected — click Save to apply');
+  }
+});
+
+// Close on backdrop click
+document.getElementById('wizard-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('wizard-overlay')) closeWizard();
+});
+
+// ============================================================
+//  Init
+// ============================================================
+connectSSE();
+fetchImages();
+fetchQueueStatus();
+// Fallback polling in case SSE fails
+setInterval(fetchImages, 10000);
 </script>
 </body>
 </html>

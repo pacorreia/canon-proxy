@@ -1,0 +1,86 @@
+image:
+  repository: ghcr.io/pacorreia/canon-proxy
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Web UI port
+web:
+  port: 9090
+
+# Ingress (Traefik IngressRoute)
+ingress:
+  enabled: true
+  host: canon-proxy.example.com
+
+# Persistent storage for the SQLite database
+storage:
+  size: 1Gi
+  # Leave storageClassName empty to use the cluster default.
+  storageClassName: ""
+
+# First-run seed values written to the database on initial startup.
+# Once settings are stored in the DB these are ignored.
+camera:
+  host: "192.168.1.100"
+  port: 15740
+  pollInterval: "5s"
+  deleteAfterUpload: false
+
+upload:
+  workers: 1
+  # backend: smb | ftp | s3 | azure | gcs
+  backend: smb
+
+# Backend connection details — non-secret values.
+# Credentials (passwords, secret keys) go in the secret section below.
+backends:
+  smb:
+    host: "192.168.1.9"
+    share: "photos"
+    username: "user"
+    path: "/uploads"
+  ftp:
+    host: ""
+    port: 21
+    username: ""
+    path: "/"
+  s3:
+    region: ""
+    bucket: ""
+    endpoint: ""
+    accessKeyID: ""
+  azure:
+    accountName: ""
+    container: ""
+  gcs:
+    bucket: ""
+
+# Credentials stored in a Kubernetes Secret.
+# All fields are optional — only those relevant to your chosen backend are used.
+# Set existingSecret to reference a pre-existing secret instead of creating one.
+secret:
+  existingSecret: ""
+  smbPassword: ""
+  ftpPassword: ""
+  s3SecretKey: ""
+  azureAccountKey: ""
+  # Path to a GCS service-account JSON file; mount it via extraVolumes if needed.
+  gcsServiceAccountJSON: ""
+
+# hostNetwork gives the pod the node's network stack, which is required when the
+# Canon camera only accepts PTP/IP connections from hosts on its own subnet.
+# The container will appear to the camera with the node's LAN IP rather than
+# a pod/bridge IP.
+hostNetwork: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

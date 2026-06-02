@@ -1,0 +1,69 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'zensical.toml'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    name: Build & Deploy to gh-pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install zensical
+        run: pip install zensical
+
+      - name: Build site
+        run: zensical build --config-file docs/zensical.toml --clean
+        # Output goes to ./site/
+
+      - name: Deploy to gh-pages
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stash the built site outside the worktree before switching branches
+          # zensical outputs relative to the config file: docs/site/
+          cp -r docs/site /tmp/site-build
+
+          git fetch origin gh-pages 2>/dev/null || true
+
+          if git rev-parse --verify origin/gh-pages > /dev/null 2>&1; then
+            git checkout gh-pages
+            git reset --hard origin/gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf . --quiet
+          fi
+
+          cp -r /tmp/site-build/. .
+
+          git add -A
+          if git diff --staged --quiet; then
+            echo "Nothing to deploy."
+            exit 0
+          fi
+          git commit -m "docs: deploy site [skip ci]"
+          git push origin gh-pages
+
+      - name: Save site artefact (for debugging)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-build
+          path: /tmp/site-build

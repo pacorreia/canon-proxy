@@ -1,143 +1,107 @@
 # canon-proxy
 
-`canon-proxy` is a high-performance Go proxy for the Canon EOS 2000D WiFi HTTP interface. It continuously polls the camera for new images and uploads each new file to a configurable backend.
+[![Release](https://img.shields.io/github/v/release/pacorreia/canon-proxy?style=flat-square)](https://github.com/pacorreia/canon-proxy/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/pacorreia/canon-proxy/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/pacorreia/canon-proxy/actions/workflows/ci.yml)
+[![Docker](https://img.shields.io/badge/ghcr.io-canon--proxy-blue?style=flat-square&logo=docker)](https://github.com/pacorreia/canon-proxy/pkgs/container/canon-proxy)
+[![Docs](https://img.shields.io/badge/docs-github.io-blueviolet?style=flat-square)](https://pacorreia.github.io/canon-proxy)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+
+**canon-proxy** is a Go service that connects to a Canon EOS camera over **PTP/IP** (WiFi, TCP :15740), continuously discovers new images, and uploads them to configurable storage backends — fully automated or with a manual review step in the web UI.
 
 ## Features
 
-- Poll Canon EOS 2000D WiFi HTTP interface for image URLs
-- Detect only new images (in-memory seen set)
-- Parallel download/upload pipeline using worker pool
-- **Web UI** for reviewing detected images and selectively pushing to storage
-- Pluggable upload backends:
-  - SMB
-  - FTP
-  - AWS S3
-  - Azure Blob Storage
-  - Google Cloud Storage
-- Graceful shutdown via SIGINT/SIGTERM
+- **PTP/IP protocol** — same GUID-based pairing used by Canon's own apps
+- **Delta polling** — only new images are processed each cycle; seen images are tracked in SQLite
+- **Video support** — MOV files detected and shown with ▶ badge in the UI
+- **Web UI** — thumbnail browser with Grid, By Date, and Timeline views; live Settings editor
+- **Upload modes**: `auto` (hands-free) · `manual` (review before upload)
+- **Pluggable backends**: SMB · FTP · AWS S3 · Azure Blob · Google Cloud Storage
+- **Resilience**: exponential back-off reconnect; optional delete-after-upload
+- **Multi-arch container** (`linux/amd64`, `linux/arm64`) on GHCR
+- **Helm chart** published to OCI (`ghcr.io/pacorreia/charts/canon-proxy`)
 
-## Modes
-
-### `auto` (default)
-Every image detected on the camera is downloaded and uploaded to the configured backend immediately — the original behaviour.
-
-### `manual`
-Images are detected and shown in the web UI. You review the thumbnails, select which ones you want, and click **Push selected** or **Push all pending**. Nothing is uploaded until you explicitly request it.
-
-## Architecture
-
-```mermaid
-flowchart TD
-    Camera["Canon EOS 2000D<br/>WiFi HTTP endpoint"]
-    Client["Canon HTTP Client"]
-    Poller["Poller<br/>(new images only)"]
-
-    subgraph auto["auto mode"]
-      WorkerPool["Worker Pool<br/>download+upload"]
-    end
-
-    subgraph manual["manual mode"]
-      Store["Image Store"]
-      WebUI["Web UI / API<br/>:9090"]
-      Workers["Worker Pool<br/>download+upload"]
-    end
-
-    SMB["SMB"]
-    FTP["FTP"]
-    S3["S3"]
-    AzureGCS["Azure/GCS"]
-
-    Camera <-->|poll| Client
-    Client --> Poller
-    Poller --> WorkerPool
-    Poller --> Store
-    Store <--> WebUI
-    WebUI -->|push request| Workers
-    WorkerPool --> SMB
-    WorkerPool --> FTP
-    WorkerPool --> S3
-    WorkerPool --> AzureGCS
-    Workers --> SMB
-    Workers --> FTP
-    Workers --> S3
-    Workers --> AzureGCS
-```
-
-## Build
+## Quick Start
 
 ```bash
-go mod tidy
-go build ./...
-```
+cp config.example.yaml config.yaml
+# Set camera.host to your camera's IP address
 
-## Run
-
-```bash
 go run ./cmd/canon-proxy --config config.yaml
+# Open http://localhost:9090
 ```
 
 ## Docker
 
 ```bash
-docker build -t canon-proxy .
-docker run --rm -v "$(pwd)/config.example.yaml:/app/config.yaml:ro" -p 9090:9090 canon-proxy
+# Default bridge network (recommended — Docker NAT rewrites source to host LAN IP)
+docker run --rm \
+  -v "$(pwd)/config.example.yaml:/app/config.yaml:ro" \
+  -p 9090:9090 \
+  ghcr.io/pacorreia/canon-proxy:latest
+```
+
+## Kubernetes (Helm)
+
+```bash
+helm install canon-proxy \
+  oci://ghcr.io/pacorreia/charts/canon-proxy \
+  --namespace canon-proxy --create-namespace \
+  -f my-values.yaml
+```
+
+## Architecture
+
+```mermaid
+flowchart TD
+    Camera["Canon EOS\nPTP/IP :15740"]
+
+    subgraph canon-proxy
+        Client["PTP/IP Client\n(GUID pairing)"]
+        Poller["Delta Poller\n(GetObjectHandles)"]
+        Store["Image Store\n(SQLite)"]
+        Workers["Worker Pool\ndownload + upload"]
+        WebUI["Web UI / REST API\n:9090"]
+    end
+
+    Backends["SMB · FTP · S3 · Azure · GCS"]
+
+    Camera <-->|"TCP PTP/IP"| Client
+    Client --> Poller
+    Poller -->|"new handles"| Store
+    Store <-->|"pending queue"| Workers
+    Store <--> WebUI
+    WebUI -->|"push selected"| Workers
+    Workers --> Backends
 ```
 
 ## Configuration
 
-Copy `config.example.yaml` to `config.yaml` and adjust values.
+Copy `config.example.yaml` → `config.yaml` and set `camera.host`. All other settings are editable live from the web UI Settings page and persisted in SQLite.
 
 ```yaml
 camera:
-  host: "192.168.1.100"
-  port: 8080
+  host: "192.168.2.70"   # your camera's IP
+  port: 15740
   poll_interval: 5s
 
 upload:
-  workers: 4
-  backend: smb # smb | ftp | s3 | azure | gcs
-
-web:
-  listen: ":9090"  # address for the web UI
-  mode: manual     # manual | auto
+  workers: 1
+  backend: smb            # smb | ftp | s3 | azure | gcs
 
 backends:
   smb:
-    host: "192.168.1.10"
+    host: "192.168.2.9"
     share: "photos"
     username: "user"
     password: "pass"
     path: "/uploads"
-  ftp:
-    host: "ftp.example.com"
-    port: 21
-    username: "user"
-    password: "pass"
-    tls: false
-    path: "/uploads"
-  s3:
-    bucket: "my-bucket"
-    region: "eu-west-1"
-    prefix: "canon/"
-    access_key: ""
-    secret_key: ""
-  azure:
-    account: "mystorageaccount"
-    container: "photos"
-    prefix: "canon/"
-    sas_token: ""
-  gcs:
-    bucket: "my-bucket"
-    prefix: "canon/"
-    credentials_file: "/path/to/sa.json"
 ```
 
-## Web UI
+See the **[full documentation](https://pacorreia.github.io/canon-proxy)** for all configuration options, backend references, and deployment guides.
 
-When `web.mode` is `manual`, open `http://<host>:9090` in a browser after starting canon-proxy.
+## Build
 
-- Thumbnail grid auto-refreshes every 4 seconds
-- Check images you want to upload, then click **Push selected**
-- Or click **Push all pending** to enqueue everything at once
-- Status badges show `pending` / `uploading` / `done` / `failed` per image
+```bash
+go mod tidy && go build ./...
+```
 

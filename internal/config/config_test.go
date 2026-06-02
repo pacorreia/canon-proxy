@@ -26,8 +26,8 @@ upload:
 		t.Fatalf("load config: %v", err)
 	}
 
-	if cfg.Camera.Port != 8080 {
-		t.Fatalf("expected default port 8080, got %d", cfg.Camera.Port)
+	if cfg.Camera.Port != 15740 {
+		t.Fatalf("expected default port 15740, got %d", cfg.Camera.Port)
 	}
 	if cfg.Camera.PollInterval != 5*time.Second {
 		t.Fatalf("expected default poll interval 5s, got %s", cfg.Camera.PollInterval)
