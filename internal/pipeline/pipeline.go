@@ -157,8 +157,13 @@ func (p *Pipeline) Run(ctx context.Context) error {
 						return
 					}
 					// Re-check the gate after dequeueing: if Pause() was called
-					// while this worker was blocking on pushCh, wait for Resume()
-					// before starting the upload.
+					// while this worker was blocking on pushCh, re-queue the image
+					// so that ClearQueue() can drain/reset it instead of leaving it
+					// stuck in "uploading" while this worker blocks.
+					if p.IsPaused() {
+						p.store.SetStatus(img.URL, store.StatusQueued, "paused")
+						continue
+					}
 					if !p.awaitGate(ctx) {
 						p.store.SetStatus(img.URL, store.StatusQueued, "context cancelled")
 						return
