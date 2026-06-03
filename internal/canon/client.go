@@ -191,9 +191,9 @@ func (c *Client) ListImagesDelta(ctx context.Context, knownImageHandles, knownFo
 		c.closeConns()
 		return nil, nil, fmt.Errorf("list camera images (delta): %w", err)
 	}
-	// merge newly-found folders with the known set so caller can cache them
+	// Remove already-known folders so the caller only gets newly discovered folder handles.
 	for h := range knownFolderHandles {
-		newFolders[h] = struct{}{}
+		delete(newFolders, h)
 	}
 	return imgs, newFolders, nil
 }
