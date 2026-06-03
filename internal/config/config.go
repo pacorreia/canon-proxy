@@ -9,15 +9,41 @@ import (
 )
 
 type Config struct {
+	// Database is the only mandatory bootstrap configuration.
+	// Everything else is stored in the database and editable from the UI.
+	Database DatabaseConfig `yaml:"database"`
+
+	// Web listen address (may also be stored in DB, but needs to be known before DB opens).
+	Web WebConfig `yaml:"web"`
+
+	// Legacy fields: present only so that the first-run seed can read them
+	// from an old-style config.yaml and populate the database.
+	// They are ignored once settings exist in the database.
 	Camera   CameraConfig   `yaml:"camera"`
 	Upload   UploadConfig   `yaml:"upload"`
 	Backends BackendsConfig `yaml:"backends"`
 }
 
+// DatabaseConfig selects the database backend and connection string.
+type DatabaseConfig struct {
+	// Driver is one of: sqlite (default), postgres, mssql.
+	Driver string `yaml:"driver"`
+	// DSN is the data source name / connection string.
+	// For SQLite: a file path, e.g. "./canon-proxy.db".
+	// For Postgres/MSSQL: the standard connection string.
+	DSN string `yaml:"dsn"`
+}
+
 type CameraConfig struct {
 	Host         string        `yaml:"host"`
 	Port         int           `yaml:"port"`
-	PollInterval time.Duration `yaml:"poll_interval"`
+	// ListenAddr, when set, switches the camera client to server mode:
+	// the proxy listens on this address and the camera connects to us.
+	// Use this for Canon EOS "Computer" WiFi in infrastructure networks.
+	// Example: ":15740"
+	ListenAddr        string        `yaml:"listen_addr"`
+	PollInterval      time.Duration `yaml:"poll_interval"`
+	DeleteAfterUpload bool          `yaml:"delete_after_upload"`
 }
 
 type UploadConfig struct {
@@ -71,10 +97,24 @@ type GCSConfig struct {
 	CredentialsFile string `yaml:"credentials_file"`
 }
 
+// WebConfig configures the HTTP server.
+type WebConfig struct {
+	// Listen is the address for the HTTP server, e.g. ":9090".
+	Listen string `yaml:"listen"`
+}
+
 func Load(path string) (*Config, error) {
 	cfg := &Config{
+		Database: DatabaseConfig{
+			Driver: "sqlite",
+			DSN:    "./canon-proxy.db",
+		},
+		Web: WebConfig{
+			Listen: ":9090",
+		},
+		// Legacy defaults (used for first-run seeding only).
 		Camera: CameraConfig{
-			Port:         8080,
+			Port:         15740,
 			PollInterval: 5 * time.Second,
 		},
 		Upload: UploadConfig{
@@ -87,6 +127,10 @@ func Load(path string) (*Config, error) {
 
 	f, err := os.Open(path)
 	if err != nil {
+		// Config file not found is not fatal — use defaults.
+		if os.IsNotExist(err) {
+			return cfg, nil
+		}
 		return nil, fmt.Errorf("open config file: %w", err)
 	}
 	defer f.Close()
@@ -95,13 +139,6 @@ func Load(path string) (*Config, error) {
 	dec.KnownFields(true)
 	if err := dec.Decode(cfg); err != nil {
 		return nil, fmt.Errorf("decode config yaml: %w", err)
-	}
-
-	if cfg.Camera.Host == "" {
-		return nil, fmt.Errorf("camera.host is required")
-	}
-	if cfg.Upload.Backend == "" {
-		return nil, fmt.Errorf("upload.backend is required")
 	}
 
 	return cfg, nil

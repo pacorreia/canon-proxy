@@ -1,38 +1,37 @@
+# Canon Proxy — example bootstrap configuration
+# Copy to config.yaml and edit as needed.
+#
+# Only the database DSN and web listen address are required.
+# All other settings are stored in the database and editable
+# from the web UI under Settings.
+
+database:
+  driver: sqlite          # sqlite | postgres | mssql
+  dsn: /data/canon-proxy.db  # SQLite: use /data/... to persist state in Docker/Helm volumes
+  # When running locally (outside a container) you can use ./canon-proxy.db instead.
+  # Postgres example: host=localhost user=canon dbname=canon password=secret sslmode=disable
+  # MSSQL example: sqlserver://sa:secret@localhost:1433?database=canon
+
+web:
+  listen: ":9090"
+
+# ---- First-run seed (optional) ----
+# These values are written to the database on first startup
+# and ignored on subsequent starts once the DB has its own values.
+
 camera:
-  host: "192.168.1.100"
-  port: 8080
+  host: "192.168.2.159"
+  port: 15740
   poll_interval: 5s
 
 upload:
-  workers: 4
-  backend: smb # smb | ftp | s3 | azure | gcs
+  workers: 1
+  backend: smb    # smb | ftp | s3 | azure | gcs
 
 backends:
   smb:
-    host: "192.168.1.10"
+    host: "192.168.2.9"
     share: "photos"
     username: "user"
-    password: "pass"
+    password: "secret"
     path: "/uploads"
-  ftp:
-    host: "ftp.example.com"
-    port: 21
-    username: "user"
-    password: "pass"
-    tls: false
-    path: "/uploads"
-  s3:
-    bucket: "my-bucket"
-    region: "eu-west-1"
-    prefix: "canon/"
-    access_key: ""
-    secret_key: ""
-  azure:
-    account: "mystorageaccount"
-    container: "photos"
-    prefix: "canon/"
-    sas_token: ""
-  gcs:
-    bucket: "my-bucket"
-    prefix: "canon/"
-    credentials_file: "/path/to/sa.json"
