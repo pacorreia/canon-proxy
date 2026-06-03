@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/pacorreia/canon-proxy/internal/canon"
 	"github.com/pacorreia/canon-proxy/internal/db"
+	"github.com/pacorreia/canon-proxy/internal/logger"
 	"github.com/pacorreia/canon-proxy/internal/store"
 )
 
@@ -134,34 +134,36 @@ func (c *boundedCache) Store(key string, value []byte) {
 
 // Server is the web UI HTTP server.
 type Server struct {
-	store        *store.Store
-	thumbFunc    ThumbFunc
-	thumbCache   *boundedCache // filename -> thumbnail bytes; evicts an arbitrary entry when capacity is reached
-	downloadFunc DownloadFunc
-	queue        QueueFunc
-	queueCtrl    QueueController
-	settingRepo  *db.SettingRepo
-	restartFunc  func() // called to restart the process
-	logBcast     *LogBroadcaster
-	httpServer   *http.Server
+	store             *store.Store
+	thumbFunc         ThumbFunc
+	thumbCache        *boundedCache // filename -> thumbnail bytes; evicts an arbitrary entry when capacity is reached
+	downloadFunc      DownloadFunc
+	queue             QueueFunc
+	queueCtrl         QueueController
+	settingRepo       *db.SettingRepo
+	restartFunc       func() // called to restart the process
+	onSettingsChanged func(map[string]string) // called after settings are saved; may be nil
+	logBcast          *LogBroadcaster
+	httpServer        *http.Server
 
 	sseMu   sync.Mutex
 	sseSubs map[*sseClient]struct{}
 }
 
 // New creates a Server and registers all routes.
-func New(st *store.Store, thumbFunc ThumbFunc, downloadFunc DownloadFunc, queue QueueFunc, listen string, qc QueueController, settingRepo *db.SettingRepo, restartFunc func(), logBcast *LogBroadcaster) *Server {
+func New(st *store.Store, thumbFunc ThumbFunc, downloadFunc DownloadFunc, queue QueueFunc, listen string, qc QueueController, settingRepo *db.SettingRepo, restartFunc func(), logBcast *LogBroadcaster, onSettingsChanged func(map[string]string)) *Server {
 	s := &Server{
-		store:        st,
-		thumbFunc:    thumbFunc,
-		thumbCache:   newBoundedCache(),
-		downloadFunc: downloadFunc,
-		queue:        queue,
-		queueCtrl:    qc,
-		settingRepo:  settingRepo,
-		restartFunc:  restartFunc,
-		logBcast:     logBcast,
-		sseSubs:      make(map[*sseClient]struct{}),
+		store:             st,
+		thumbFunc:         thumbFunc,
+		thumbCache:        newBoundedCache(),
+		downloadFunc:      downloadFunc,
+		queue:             queue,
+		queueCtrl:         qc,
+		settingRepo:       settingRepo,
+		restartFunc:       restartFunc,
+		onSettingsChanged: onSettingsChanged,
+		logBcast:          logBcast,
+		sseSubs:           make(map[*sseClient]struct{}),
 	}
 
 	st.SetOnChange(s.broadcast)
@@ -220,12 +222,12 @@ func (s *Server) Start(ctx context.Context) {
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := s.httpServer.Shutdown(shutCtx); err != nil {
-			log.Printf("level=warn component=web msg=\"shutdown error\" err=%q", err)
+			logger.Warn("component=web msg=\"shutdown error\" err=%q", err)
 		}
 	}()
-	log.Printf("level=info component=web msg=\"listening\" addr=%q", s.httpServer.Addr)
+	logger.Info("component=web msg=\"listening\" addr=%q", s.httpServer.Addr)
 	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Printf("level=error component=web msg=\"server error\" err=%q", err)
+		logger.Error("component=web msg=\"server error\" err=%q", err)
 	}
 }
 
@@ -254,7 +256,7 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	// the server-wide WriteTimeout does not prematurely close the stream.
 	rc := http.NewResponseController(w)
 	if err := rc.SetWriteDeadline(time.Time{}); err != nil {
-		log.Printf("level=warn component=web msg=\"could not clear SSE write deadline\" err=%q", err)
+		logger.Warn("component=web msg=\"could not clear SSE write deadline\" err=%q", err)
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -303,7 +305,7 @@ func (s *Server) handleImages(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(entries); err != nil {
-		log.Printf("level=error component=web msg=\"encode images\" err=%q", err)
+		logger.Error("component=web msg=\"encode images\" err=%q", err)
 	}
 }
 
@@ -421,7 +423,7 @@ func (s *Server) serveThumb(w http.ResponseWriter, r *http.Request, filename str
 
 	rc, err := s.thumbFunc(r.Context(), entry.URL)
 	if err != nil {
-		log.Printf("level=warn component=web msg=\"thumbnail fetch failed\" file=%q err=%q", filename, err)
+		logger.Warn("component=web msg=\"thumbnail fetch failed\" file=%q err=%q", filename, err)
 		http.Error(w, "failed to fetch thumbnail", http.StatusBadGateway)
 		return
 	}
@@ -433,7 +435,7 @@ func (s *Server) serveThumb(w http.ResponseWriter, r *http.Request, filename str
 
 	data, err := io.ReadAll(rc)
 	if err != nil {
-		log.Printf("level=warn component=web msg=\"thumbnail read failed\" file=%q err=%q", filename, err)
+		logger.Warn("component=web msg=\"thumbnail read failed\" file=%q err=%q", filename, err)
 		http.Error(w, "failed to read thumbnail", http.StatusBadGateway)
 		return
 	}
@@ -464,10 +466,10 @@ func (s *Server) serveDownloadSingle(w http.ResponseWriter, r *http.Request, fil
 		http.NotFound(w, r)
 		return
 	}
-	log.Printf("level=info component=web msg=\"single download\" file=%q", filename)
+	logger.Info("component=web msg=\"single download\" file=%q", filename)
 	rc, err := s.downloadFunc(r.Context(), canon.Image{Filename: entry.Filename, URL: entry.URL})
 	if err != nil {
-		log.Printf("level=warn component=web msg=\"download failed\" file=%q err=%q", filename, err)
+		logger.Warn("component=web msg=\"download failed\" file=%q err=%q", filename, err)
 		http.Error(w, "failed to download image", http.StatusBadGateway)
 		return
 	}
@@ -477,7 +479,7 @@ func (s *Server) serveDownloadSingle(w http.ResponseWriter, r *http.Request, fil
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+safeName+"\"")
 	w.Header().Set("Cache-Control", "no-store")
 	if _, err := io.Copy(w, rc); err != nil {
-		log.Printf("level=warn component=web msg=\"download copy error\" file=%q err=%q", filename, err)
+		logger.Warn("component=web msg=\"download copy error\" file=%q err=%q", filename, err)
 	}
 }
 
@@ -508,7 +510,7 @@ func (s *Server) handleDownloadZip(w http.ResponseWriter, r *http.Request) {
 		if e := s.store.GetByFilename(fn); e != nil {
 			entries = append(entries, *e)
 		} else {
-			log.Printf("level=warn component=web msg=\"zip: file not found\" file=%q", fn)
+			logger.Warn("component=web msg=\"zip: file not found\" file=%q", fn)
 		}
 	}
 	if len(entries) == 0 {
@@ -516,7 +518,7 @@ func (s *Server) handleDownloadZip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("level=info component=web msg=\"zip download started\" count=%d", len(entries))
+	logger.Info("component=web msg=\"zip download started\" count=%d", len(entries))
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename=\"canon-images.zip\"")
 	w.Header().Set("Cache-Control", "no-store")
@@ -527,22 +529,22 @@ func (s *Server) handleDownloadZip(w http.ResponseWriter, r *http.Request) {
 	for _, entry := range entries {
 		rc, err := s.downloadFunc(r.Context(), canon.Image{Filename: entry.Filename, URL: entry.URL})
 		if err != nil {
-			log.Printf("level=warn component=web msg=\"zip: skip file\" file=%q err=%q", entry.Filename, err)
+			logger.Warn("component=web msg=\"zip: skip file\" file=%q err=%q", entry.Filename, err)
 			continue
 		}
 		safeName := strings.NewReplacer("/", "_", "\\", "_").Replace(entry.Filename)
 		fw, err := zw.Create(safeName)
 		if err != nil {
 			rc.Close()
-			log.Printf("level=warn component=web msg=\"zip: create entry\" file=%q err=%q", entry.Filename, err)
+			logger.Warn("component=web msg=\"zip: create entry\" file=%q err=%q", entry.Filename, err)
 			continue
 		}
 		if _, err := io.Copy(fw, rc); err != nil {
-			log.Printf("level=warn component=web msg=\"zip: copy error\" file=%q err=%q", entry.Filename, err)
+			logger.Warn("component=web msg=\"zip: copy error\" file=%q err=%q", entry.Filename, err)
 		}
 		rc.Close()
 	}
-	log.Printf("level=info component=web msg=\"zip download done\" count=%d", len(entries))
+	logger.Info("component=web msg=\"zip download done\" count=%d", len(entries))
 }
 
 // ---------- Queue controls ----------------------------------------------------
@@ -637,7 +639,7 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(m); err != nil {
-		log.Printf("level=error component=web msg=\"encode settings\" err=%q", err)
+		logger.Error("component=web msg=\"encode settings\" err=%q", err)
 	}
 }
 
@@ -664,11 +666,14 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err := s.settingRepo.SetMany(kv); err != nil {
-		log.Printf("level=error component=web msg=\"save settings\" err=%q", err)
+		logger.Error("component=web msg=\"save settings\" err=%q", err)
 		http.Error(w, "failed to save settings", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("level=info component=web msg=\"settings updated\" keys=%d", len(kv))
+	logger.Info("component=web msg=\"settings updated\" keys=%d", len(kv))
+	if s.onSettingsChanged != nil {
+		s.onSettingsChanged(kv)
+	}
 	// Return the full updated settings map.
 	s.getSettings(w, r)
 }
@@ -683,19 +688,19 @@ func (s *Server) handleCameraScan(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	log.Printf("level=info component=web msg=\"camera scan started\"")
+	logger.Info("component=web msg=\"camera scan started\"")
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 	cameras, err := canon.DiscoverLAN(ctx)
 	if err != nil {
-		log.Printf("level=warn component=web msg=\"camera scan error\" err=%q", err)
+		logger.Warn("component=web msg=\"camera scan error\" err=%q", err)
 		http.Error(w, "scan failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if cameras == nil {
 		cameras = []canon.DiscoveredCamera{}
 	}
-	log.Printf("level=info component=web msg=\"camera scan done\" found=%d", len(cameras))
+	logger.Info("component=web msg=\"camera scan done\" found=%d", len(cameras))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cameras)
 }
@@ -723,7 +728,7 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	// deadline so the server-wide WriteTimeout does not close the stream.
 	rc := http.NewResponseController(w)
 	if err := rc.SetWriteDeadline(time.Time{}); err != nil {
-		log.Printf("level=warn component=web msg=\"could not clear log stream write deadline\" err=%q", err)
+		logger.Warn("component=web msg=\"could not clear log stream write deadline\" err=%q", err)
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -770,7 +775,7 @@ func (s *Server) handleRestart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "restart not configured", http.StatusNotImplemented)
 		return
 	}
-	log.Printf("level=info component=web msg=\"restart requested\"")
+	logger.Info("component=web msg=\"restart requested\"")
 	w.WriteHeader(http.StatusAccepted)
 	go func() {
 		time.Sleep(150 * time.Millisecond) // let the HTTP response flush

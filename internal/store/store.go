@@ -1,11 +1,11 @@
 package store
 
 import (
-	"log"
 	"sync"
 	"time"
 
 	"github.com/pacorreia/canon-proxy/internal/db"
+	"github.com/pacorreia/canon-proxy/internal/logger"
 )
 
 // Status mirrors db constants, re-exported for pipeline/web compatibility.
@@ -65,7 +65,7 @@ func (s *Store) notify() {
 func (s *Store) Add(filename, url string, capturedAt *time.Time, isVideo bool) bool {
 	_, created, err := s.repo.FindOrCreate(filename, url, capturedAt, isVideo)
 	if err != nil {
-		log.Printf("level=error component=store msg=\"Add failed\" file=%q url=%q err=%q", filename, url, err)
+		logger.Error("component=store msg=\"Add failed\" file=%q url=%q err=%q", filename, url, err)
 		return false
 	}
 	if created {
@@ -78,7 +78,7 @@ func (s *Store) Add(filename, url string, capturedAt *time.Time, isVideo bool) b
 func (s *Store) List() []Entry {
 	recs, err := s.repo.List()
 	if err != nil {
-		log.Printf("level=error component=store msg=\"List failed\" err=%q", err)
+		logger.Error("component=store msg=\"List failed\" err=%q", err)
 		return []Entry{}
 	}
 	return recsToEntries(recs)
@@ -97,7 +97,7 @@ func (s *Store) GetByFilename(filename string) *Entry {
 // SetStatus updates the status and error message for the image identified by URL.
 func (s *Store) SetStatus(url string, status Status, errMsg string) {
 	if err := s.repo.SetStatus(url, status, errMsg); err != nil {
-		log.Printf("level=error component=store msg=\"SetStatus failed\" url=%q err=%q", url, err)
+		logger.Error("component=store msg=\"SetStatus failed\" url=%q err=%q", url, err)
 		return
 	}
 	s.notify()
@@ -105,7 +105,7 @@ func (s *Store) SetStatus(url string, status Status, errMsg string) {
 
 func (s *Store) SetRetryQueued(url string, retryCount int, nextRetryAt time.Time, errMsg string) {
 	if err := s.repo.SetRetryQueued(url, retryCount, nextRetryAt, errMsg); err != nil {
-		log.Printf("level=error component=store msg=\"SetRetryQueued failed\" url=%q err=%q", url, err)
+		logger.Error("component=store msg=\"SetRetryQueued failed\" url=%q err=%q", url, err)
 		return
 	}
 	s.notify()
@@ -117,7 +117,7 @@ func (s *Store) MarkQueued(urls []string) {
 		return
 	}
 	if err := s.repo.MarkQueued(urls); err != nil {
-		log.Printf("level=error component=store msg=\"MarkQueued failed\" err=%q", err)
+		logger.Error("component=store msg=\"MarkQueued failed\" err=%q", err)
 		return
 	}
 	s.notify()
@@ -202,7 +202,7 @@ func (s *Store) ListReadyToRetry() []Entry {
 func (s *Store) ResetQueued() int64 {
 	n, err := s.repo.ResetQueued()
 	if err != nil {
-		log.Printf("level=error component=store msg=\"ResetQueued failed\" err=%q", err)
+		logger.Error("component=store msg=\"ResetQueued failed\" err=%q", err)
 	}
 	if n > 0 {
 		s.notify()

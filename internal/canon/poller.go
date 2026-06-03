@@ -2,9 +2,10 @@ package canon
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
+
+	"github.com/pacorreia/canon-proxy/internal/logger"
 )
 
 const maxSeenImages = 50_000
@@ -73,7 +74,7 @@ func (p *Poller) Run(ctx context.Context) <-chan Image {
 		for {
 			// Wait out any error back-off before the next attempt.
 			if errBackoff > 0 {
-				log.Printf("level=info component=poller msg=\"waiting before retry\" backoff=%s", errBackoff)
+				logger.Info("component=poller msg=\"waiting before retry\" backoff=%s", errBackoff)
 				select {
 				case <-ctx.Done():
 					return
@@ -143,7 +144,7 @@ func (p *Poller) pollOnce(ctx context.Context, out chan<- Image) error {
 		if ctx.Err() != nil {
 			return nil // context cancelled, not a camera error
 		}
-		log.Printf("level=error component=poller msg=\"failed to list images\" err=%q", err)
+		logger.Error("component=poller msg=\"failed to list images\" err=%q", err)
 		return err
 	}
 

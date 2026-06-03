@@ -17,6 +17,7 @@ import (
 	"github.com/pacorreia/canon-proxy/internal/canon"
 	"github.com/pacorreia/canon-proxy/internal/config"
 	"github.com/pacorreia/canon-proxy/internal/db"
+	"github.com/pacorreia/canon-proxy/internal/logger"
 	"github.com/pacorreia/canon-proxy/internal/pipeline"
 	"github.com/pacorreia/canon-proxy/internal/store"
 	"github.com/pacorreia/canon-proxy/internal/web"
@@ -28,7 +29,7 @@ func main() {
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		log.Fatalf("level=fatal msg=\"failed to load config\" err=%q", err)
+		logger.Fatal("msg=\"failed to load config\" err=%q", err)
 	}
 
 	// Initialise database.
@@ -42,20 +43,35 @@ func main() {
 	}
 	gdb, err := db.Open(driver, dsn)
 	if err != nil {
-		log.Fatalf("level=fatal msg=\"failed to open database\" driver=%q dsn=%q err=%q", driver, dsn, err)
+		logger.Fatal("msg=\"failed to open database\" driver=%q dsn=%q err=%q", driver, dsn, err)
 	}
 
 	imageRepo := db.NewImageRepo(gdb)
 	settingRepo := db.NewSettingRepo(gdb)
 
+	// Check if camera settings already exist in the database before seeding.
+	// Used below to warn when config.yaml provides camera settings that will be ignored.
+	existingCameraHost, _ := settingRepo.Get("camera.host")
+	existingListenAddr, _ := settingRepo.Get("camera.listen_addr")
+	dbHasCameraConfig := hasCameraSettings(existingCameraHost, existingListenAddr)
+
 	// Seed default settings from config (only inserts if key not yet present).
 	seedSettingsFromConfig(settingRepo, cfg)
+
+	// Warn when config.yaml provides camera/upload/backend settings that the database
+	// already has its own values for — the file values are silently ignored by SeedDefaults.
+	if cfg.Loaded && dbHasCameraConfig && (cfg.Camera.Host != "" || cfg.Camera.ListenAddr != "") {
+		logger.Warn("msg=\"camera settings in config.yaml will be ignored; settings already stored in database\"")
+	}
 
 	// Load app settings from database.
 	appSettings, err := settingRepo.All()
 	if err != nil {
-		log.Fatalf("level=fatal msg=\"failed to load settings\" err=%q", err)
+		logger.Fatal("msg=\"failed to load settings\" err=%q", err)
 	}
+
+	// Apply the stored log level immediately.
+	logger.SetLevel(getStr(appSettings, "log.level", "info"))
 
 	// Build camera client.
 	cameraHost := getStr(appSettings, "camera.host", cfg.Camera.Host)
@@ -63,25 +79,29 @@ func main() {
 	listenAddr := getStr(appSettings, "camera.listen_addr", cfg.Camera.ListenAddr)
 	pollInterval := getDuration(appSettings, "camera.poll_interval", cfg.Camera.PollInterval, 5*time.Second)
 
+	hasCameraConfig := hasCameraSettings(cameraHost, listenAddr)
+
 	var client *canon.Client
-	if listenAddr != "" {
-		client = canon.NewServerClient(listenAddr, cameraHost)
-	} else {
-		if strings.TrimSpace(cameraHost) == "" {
-			log.Fatalf("level=fatal msg=\"camera.host is required when camera.listen_addr is not set\"")
+	var poller *canon.Poller
+	if hasCameraConfig {
+		if listenAddr != "" {
+			client = canon.NewServerClient(listenAddr, cameraHost)
+		} else {
+			client = canon.NewClient(cameraHost, cameraPort)
 		}
-		client = canon.NewClient(cameraHost, cameraPort)
+		poller = canon.NewPoller(client, pollInterval)
+	} else {
+		logger.Warn("msg=\"no camera configured; polling will not start until camera settings are saved and the process is restarted\"")
 	}
-	poller := canon.NewPoller(client, pollInterval)
 
 	// Build upload backend.
 	uploadBackend, err := backend.NewFromSettings(appSettings)
 	if err != nil {
-		log.Fatalf("level=fatal msg=\"failed to initialize backend\" err=%q", err)
+		logger.Fatal("msg=\"failed to initialize backend\" err=%q", err)
 	}
 	defer func() {
 		if err := uploadBackend.Close(); err != nil {
-			log.Printf("level=warn msg=\"close backend error\" err=%q", err)
+			logger.Warn("msg=\"close backend error\" err=%q", err)
 		}
 	}()
 
@@ -91,7 +111,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log.Printf("level=info msg=\"starting canon proxy\" camera=%q backend=%q workers=%d db=%q",
+	logger.Info("msg=\"starting canon proxy\" camera=%q backend=%q workers=%d db=%q",
 		fmt.Sprintf("%s:%d", cameraHost, cameraPort), uploadBackend.Name(), workers, driver)
 
 	// Build store and recover any interrupted uploads.
@@ -104,7 +124,7 @@ func main() {
 	// Enqueue all previously-queued images on startup (e.g. after a restart).
 	freshQueued := st.AllFreshQueued()
 	if len(freshQueued) > 0 {
-		log.Printf("level=info msg=\"re-enqueuing previously queued images\" count=%d", len(freshQueued))
+		logger.Info("msg=\"re-enqueuing previously queued images\" count=%d", len(freshQueued))
 		imgs := make([]canon.Image, len(freshQueued))
 		for i, e := range freshQueued {
 			imgs[i] = canon.Image{Filename: e.Filename, URL: e.URL}
@@ -112,12 +132,17 @@ func main() {
 		p.Queue(imgs)
 	}
 
-	thumbFunc := func(ctx context.Context, imageURL string) (io.ReadCloser, error) {
-		return client.GetThumb(ctx, imageURL)
-	}
-
-	downloadFunc := func(ctx context.Context, image canon.Image) (io.ReadCloser, error) {
-		return client.DownloadImage(ctx, image)
+	// thumbFunc and downloadFunc are only set when a camera client is available.
+	// The web server handles nil values gracefully (returns 501 Not Implemented).
+	var thumbFunc web.ThumbFunc
+	var downloadFunc web.DownloadFunc
+	if client != nil {
+		thumbFunc = func(ctx context.Context, imageURL string) (io.ReadCloser, error) {
+			return client.GetThumb(ctx, imageURL)
+		}
+		downloadFunc = func(ctx context.Context, image canon.Image) (io.ReadCloser, error) {
+			return client.DownloadImage(ctx, image)
+		}
 	}
 
 	// restartFunc re-execs the current process in-place, inheriting all
@@ -125,13 +150,13 @@ func main() {
 	restartFunc := func() {
 		exe, err := os.Executable()
 		if err != nil {
-			log.Printf("level=error msg=\"restart: could not resolve executable\" err=%q", err)
+			logger.Error("msg=\"restart: could not resolve executable\" err=%q", err)
 			return
 		}
-		log.Printf("level=info msg=\"restarting process\" exe=%q", exe)
+		logger.Info("msg=\"restarting process\" exe=%q", exe)
 		// syscall.Exec replaces this process image; never returns on success.
 		if err := syscall.Exec(exe, os.Args, os.Environ()); err != nil {
-			log.Printf("level=error msg=\"restart failed\" err=%q", err)
+			logger.Error("msg=\"restart failed\" err=%q", err)
 		}
 	}
 
@@ -140,14 +165,28 @@ func main() {
 		Resume:   p.Resume,
 		Clear:    func() { p.ClearQueue() },
 		IsPaused: p.IsPaused,
-	}, settingRepo, restartFunc, initLogBroadcaster())
+	}, settingRepo, restartFunc, initLogBroadcaster(), func(kv map[string]string) {
+		if v, ok := kv["log.level"]; ok {
+			logger.SetLevel(v)
+			logger.Info("msg=\"log level changed\" level=%q", v)
+		}
+	})
 
 	go srv.Start(ctx)
 
-	if err := p.Run(ctx); err != nil {
-		log.Fatalf("level=fatal msg=\"pipeline terminated with error\" err=%q", err)
+	if hasCameraConfig {
+		if err := p.Run(ctx); err != nil {
+			logger.Fatal("msg=\"pipeline terminated with error\" err=%q", err)
+		}
+	} else {
+		// Pause the pipeline so that Queue calls from the web UI keep items in
+		// StatusQueued rather than StatusUploading (which would leave them stuck
+		// with no workers running to process them).
+		p.Pause()
+		logger.Info("msg=\"running without camera polling; waiting for web UI interactions or shutdown signal\"")
+		<-ctx.Done()
 	}
-	log.Printf("level=info msg=\"canon proxy stopped\"")
+	logger.Info("msg=\"canon proxy stopped\"")
 }
 
 // seedSettingsFromConfig inserts default values from the YAML config for
@@ -184,13 +223,19 @@ func seedSettingsFromConfig(repo *db.SettingRepo, cfg *config.Config) {
 		"gcs.bucket":           cfg.Backends.GCS.Bucket,
 		"gcs.prefix":           cfg.Backends.GCS.Prefix,
 		"gcs.credentials_file": cfg.Backends.GCS.CredentialsFile,
+		"log.level":            "info",
 	}
 	if err := repo.SeedDefaults(defaults); err != nil {
-		log.Printf("level=warn msg=\"failed to seed default settings\" err=%q", err)
+		logger.Warn("msg=\"failed to seed default settings\" err=%q", err)
 	}
 }
 
 // ---- helpers ----------------------------------------------------------------
+
+// hasCameraSettings reports whether a camera host or listen address is set.
+func hasCameraSettings(host, listenAddr string) bool {
+	return strings.TrimSpace(host) != "" || strings.TrimSpace(listenAddr) != ""
+}
 
 func getStr(m map[string]string, key, fallback string) string {
 	if v, ok := m[key]; ok && v != "" {

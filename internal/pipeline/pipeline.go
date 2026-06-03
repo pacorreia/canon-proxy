@@ -3,12 +3,12 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/pacorreia/canon-proxy/internal/backend"
 	"github.com/pacorreia/canon-proxy/internal/canon"
+	"github.com/pacorreia/canon-proxy/internal/logger"
 	"github.com/pacorreia/canon-proxy/internal/store"
 )
 
@@ -116,7 +116,7 @@ func (p *Pipeline) Queue(images []canon.Image) {
 		select {
 		case p.pushCh <- img:
 		default:
-			log.Printf("level=warn component=pipeline msg=\"push channel full\" file=%q", img.Filename)
+			logger.Warn("component=pipeline msg=\"push channel full\" file=%q", img.Filename)
 			p.store.SetStatus(img.URL, store.StatusQueued, "channel full")
 		}
 	}
@@ -133,7 +133,7 @@ func (p *Pipeline) Run(ctx context.Context) error {
 	go func() {
 		for img := range polledCh {
 			if added := p.store.Add(img.Filename, img.URL, img.CapturedAt, img.IsVideo); added {
-				log.Printf("level=info component=pipeline msg=\"image discovered\" file=%q", img.Filename)
+				logger.Info("component=pipeline msg=\"image discovered\" file=%q", img.Filename)
 			}
 		}
 	}()
@@ -169,7 +169,7 @@ func (p *Pipeline) Run(ctx context.Context) error {
 						return
 					}
 					if err := p.processImage(ctx, img, id); err != nil {
-						log.Printf("level=error component=pipeline worker=%d file=%q err=%q", id, img.Filename, err)
+						logger.Error("component=pipeline worker=%d msg=\"process error\" file=%q err=%q", id, img.Filename, err)
 					}
 				}
 			}
@@ -200,7 +200,7 @@ func (p *Pipeline) retryScheduler(ctx context.Context) {
 				img := canon.Image{Filename: e.Filename, URL: e.URL}
 				select {
 				case p.pushCh <- img:
-					log.Printf("level=info component=pipeline msg=\"enqueued\" file=%q retry_count=%d", e.Filename, e.RetryCount)
+					logger.Info("component=pipeline msg=\"enqueued\" file=%q retry_count=%d", e.Filename, e.RetryCount)
 				default:
 					// Channel full: revert to queued so the scheduler retries next tick.
 					p.store.SetStatus(e.URL, store.StatusQueued, "channel full")
@@ -233,12 +233,12 @@ func (p *Pipeline) processImage(ctx context.Context, img canon.Image, workerID i
 	}
 
 	p.store.SetStatus(img.URL, store.StatusDone, "")
-	log.Printf("level=info component=pipeline worker=%d msg=\"uploaded\" file=%q backend=%q", workerID, img.Filename, p.backend.Name())
+	logger.Info("component=pipeline worker=%d msg=\"uploaded\" file=%q backend=%q", workerID, img.Filename, p.backend.Name())
 
 	// Optionally delete the image from camera after a successful upload (transactional).
 	if p.deleteAfterUpload {
 		if err := p.client.DeleteObject(ctx, img); err != nil {
-			log.Printf("level=warn component=pipeline worker=%d msg=\"delete from camera failed\" file=%q err=%q", workerID, img.Filename, err)
+			logger.Warn("component=pipeline worker=%d msg=\"delete from camera failed\" file=%q err=%q", workerID, img.Filename, err)
 		} else {
 			p.poller.EvictHandle(img.URL)
 		}
@@ -252,12 +252,12 @@ func (p *Pipeline) handleFailure(img canon.Image, retryCount int, err error) err
 		attempt := retryCount + 1
 		backoff := retryBackoff(attempt)
 		p.store.SetRetryQueued(img.URL, attempt, time.Now().Add(backoff), err.Error())
-		log.Printf("level=warn component=pipeline msg=\"scheduling retry\" file=%q attempt=%d backoff=%s err=%q",
+		logger.Warn("component=pipeline msg=\"scheduling retry\" file=%q attempt=%d backoff=%s err=%q",
 			img.Filename, attempt, backoff, err)
 		return nil
 	}
 	p.store.SetStatus(img.URL, store.StatusFailed, err.Error())
-	log.Printf("level=error component=pipeline msg=\"max retries exhausted\" file=%q err=%q", img.Filename, err)
+	logger.Error("component=pipeline msg=\"max retries exhausted\" file=%q err=%q", img.Filename, err)
 	return err
 }
 
