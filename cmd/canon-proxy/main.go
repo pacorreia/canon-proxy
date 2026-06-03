@@ -303,9 +303,9 @@ func envOrVal(envKey, val string) string {
 // parseGUID parses a 32-hex-digit UUID string (with or without dashes) into a
 // [16]byte array. Returns false when the string is not a valid 32-hex-digit GUID.
 func parseGUID(s string) ([16]byte, bool) {
-	// Strip dashes so both "cafebabe-dead-beef-0001-63616e6f6e78" and
+	// Strip dashes and spaces so both "cafebabe-dead-beef-0001-63616e6f6e78" and
 	// "cafebabedead beef000163616e6f6e78" (without dashes) are accepted.
-	stripped := strings.ReplaceAll(s, "-", "")
+	stripped := strings.ReplaceAll(strings.ReplaceAll(s, "-", ""), " ", "")
 	if len(stripped) != 32 {
 		return [16]byte{}, false
 	}
