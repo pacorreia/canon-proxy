@@ -117,7 +117,7 @@ func (r *ImageRepo) ListFreshQueued() ([]ImageRecord, error) {
 func (r *ImageRepo) GetByURL(url string) (*ImageRecord, error) {
 	var rec ImageRecord
 	err := r.db.Where("url = ?", url).First(&rec).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &rec, err
