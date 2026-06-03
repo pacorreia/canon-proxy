@@ -473,7 +473,8 @@ func (s *Server) serveDownloadSingle(w http.ResponseWriter, r *http.Request, fil
 	}
 	defer rc.Close()
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	safeName := strings.NewReplacer("\\", "_", "/", "_", "\"", "_", "\n", "", "\r", "").Replace(filename)
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+safeName+"\"")
 	w.Header().Set("Cache-Control", "no-store")
 	if _, err := io.Copy(w, rc); err != nil {
 		log.Printf("level=warn component=web msg=\"download copy error\" file=%q err=%q", filename, err)
