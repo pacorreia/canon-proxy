@@ -97,8 +97,15 @@ func (p *Pipeline) ClearQueue() int {
 	}
 }
 
-// Queue sends images for immediate upload.
+// Queue sends images for upload. If the pipeline is paused, images are marked
+// as queued so the retry scheduler picks them up after resume.
 func (p *Pipeline) Queue(images []canon.Image) {
+	if p.IsPaused() {
+		for _, img := range images {
+			p.store.SetStatus(img.URL, store.StatusQueued, "")
+		}
+		return
+	}
 	for _, img := range images {
 		p.store.SetStatus(img.URL, store.StatusUploading, "")
 		select {
