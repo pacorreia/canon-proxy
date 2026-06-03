@@ -78,7 +78,8 @@ func (s *Store) Add(filename, url string, capturedAt *time.Time, isVideo bool) b
 func (s *Store) List() []Entry {
 	recs, err := s.repo.List()
 	if err != nil {
-		return nil
+		log.Printf("level=error component=store msg=\"List failed\" err=%q", err)
+		return []Entry{}
 	}
 	return recsToEntries(recs)
 }
@@ -115,7 +116,10 @@ func (s *Store) MarkQueued(urls []string) {
 	if len(urls) == 0 {
 		return
 	}
-	_ = s.repo.MarkQueued(urls)
+	if err := s.repo.MarkQueued(urls); err != nil {
+		log.Printf("level=error component=store msg=\"MarkQueued failed\" err=%q", err)
+		return
+	}
 	s.notify()
 }
 

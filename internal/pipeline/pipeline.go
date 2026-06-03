@@ -193,11 +193,16 @@ func (p *Pipeline) retryScheduler(ctx context.Context) {
 			}
 			todo := append(p.store.AllFreshQueued(), p.store.ListReadyToRetry()...)
 			for _, e := range todo {
+				// Mark as uploading before pushing to pushCh so that the record
+				// is not picked up again on the next scheduler tick (which would
+				// cause duplicate uploads if the tick fires before the worker drains).
+				p.store.SetStatus(e.URL, store.StatusUploading, "")
 				img := canon.Image{Filename: e.Filename, URL: e.URL}
 				select {
 				case p.pushCh <- img:
 					log.Printf("level=info component=pipeline msg=\"enqueued\" file=%q retry_count=%d", e.Filename, e.RetryCount)
 				default:
+					// Channel full: revert to queued so the scheduler retries next tick.
 					p.store.SetStatus(e.URL, store.StatusQueued, "channel full")
 				}
 			}

@@ -6,15 +6,15 @@
 [![Docs](https://img.shields.io/badge/docs-github.io-blueviolet?style=flat-square)](https://pacorreia.github.io/canon-proxy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-**canon-proxy** is a Go service that connects to a Canon EOS camera over **PTP/IP** (WiFi, TCP :15740), continuously discovers new images, and uploads them to configurable storage backends — fully automated or with a manual review step in the web UI.
+**canon-proxy** is a Go service that connects to a Canon EOS camera over **PTP/IP** (WiFi, TCP :15740), continuously discovers new images, and uploads them to configurable storage backends via a web UI queue.
 
 ## Features
 
 - **PTP/IP protocol** — same GUID-based pairing used by Canon's own apps
 - **Delta polling** — only new images are processed each cycle; seen images are tracked in SQLite
 - **Video support** — MOV files detected and shown with ▶ badge in the UI
-- **Web UI** — thumbnail browser with Grid, By Date, and Timeline views; live Settings editor
-- **Upload modes**: `auto` (hands-free) · `manual` (review before upload)
+- **Web UI** — thumbnail browser with Grid, By Date, and Timeline views; live Settings editor; queue controls
+- **Queue-based uploads** — discovered images are shown in the UI; select images to queue for upload
 - **Pluggable backends**: SMB · FTP · AWS S3 · Azure Blob · Google Cloud Storage
 - **Resilience**: exponential back-off reconnect; optional delete-after-upload
 - **Multi-arch container** (`linux/amd64`, `linux/arm64`) on GHCR
