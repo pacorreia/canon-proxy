@@ -50,6 +50,7 @@ jobs:
         with:
           config-file:   release-please-config.json
           manifest-file: .release-please-manifest.json
+          token:         ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run release-please (on-demand with forced version)
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
@@ -59,6 +60,7 @@ jobs:
           config-file:   release-please-config.json
           manifest-file: .release-please-manifest.json
           release-as:    ${{ inputs.release_as }}
+          token:         ${{ secrets.GITHUB_TOKEN }}
 
   # ── Resolve release tag (both automated and on-demand paths) ─────────────
   get-tag:
@@ -176,6 +178,7 @@ jobs:
     needs: get-tag
     runs-on: ubuntu-latest
     permissions:
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
