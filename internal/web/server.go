@@ -98,7 +98,7 @@ func (lb *LogBroadcaster) unsubscribe(c *logClient) {
 }
 
 // boundedCache is a simple thread-safe cache with a fixed maximum number of
-// entries. When the cache is full, one entry is evicted at random before the
+// entries. When the cache is full, one entry is evicted arbitrarily before the
 // new entry is inserted. This prevents unbounded memory growth in long-running
 // deployments with large SD cards.
 const thumbCacheMaxSize = 512
