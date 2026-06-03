@@ -7,9 +7,8 @@ image:
 web:
   port: 9090
 
-# Ingress (Traefik IngressRoute)
 ingress:
-  enabled: true
+  enabled: false
   host: canon-proxy.example.com
 
 # Persistent storage for the SQLite database
