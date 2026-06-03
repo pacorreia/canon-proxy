@@ -43,8 +43,7 @@ func NewImageRepo(db *gorm.DB) *ImageRepo {
 func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, isVideo bool) (*ImageRecord, bool, error) {
 	var rec ImageRecord
 	result := r.db.Where("url = ?", url).First(&rec)
-	if result.Error == gorm.ErrRecordNotFound {
-		rec = ImageRecord{
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			Filename:   filename,
 			URL:        url,
 			Status:     StatusDiscovered,
