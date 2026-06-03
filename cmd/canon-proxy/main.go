@@ -185,7 +185,9 @@ func seedSettingsFromConfig(repo *db.SettingRepo, cfg *config.Config) {
 		"gcs.prefix":           cfg.Backends.GCS.Prefix,
 		"gcs.credentials_file": cfg.Backends.GCS.CredentialsFile,
 	}
-	_ = repo.SeedDefaults(defaults)
+	if err := repo.SeedDefaults(defaults); err != nil {
+		log.Printf("level=warn msg=\"failed to seed default settings\" err=%q", err)
+	}
 }
 
 // ---- helpers ----------------------------------------------------------------
