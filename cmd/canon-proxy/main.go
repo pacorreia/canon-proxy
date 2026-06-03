@@ -91,7 +91,7 @@ func main() {
 		}
 		poller = canon.NewPoller(client, pollInterval)
 	} else {
-		logger.Warn("msg=\"no camera configured; polling will not start until camera settings are saved via the web UI\"")
+		logger.Warn("msg=\"no camera configured; polling will not start until camera settings are saved and the process is restarted\"")
 	}
 
 	// Build upload backend.
@@ -133,7 +133,7 @@ func main() {
 	}
 
 	// thumbFunc and downloadFunc are only set when a camera client is available.
-	// The web server handles nil values gracefully (returns 503).
+	// The web server handles nil values gracefully (returns 501 Not Implemented).
 	var thumbFunc web.ThumbFunc
 	var downloadFunc web.DownloadFunc
 	if client != nil {
@@ -179,6 +179,10 @@ func main() {
 			logger.Fatal("msg=\"pipeline terminated with error\" err=%q", err)
 		}
 	} else {
+		// Pause the pipeline so that Queue calls from the web UI keep items in
+		// StatusQueued rather than StatusUploading (which would leave them stuck
+		// with no workers running to process them).
+		p.Pause()
 		logger.Info("msg=\"running without camera polling; waiting for web UI interactions or shutdown signal\"")
 		<-ctx.Done()
 	}
