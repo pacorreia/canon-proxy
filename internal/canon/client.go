@@ -6,13 +6,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"unicode/utf16"
+
+	"github.com/pacorreia/canon-proxy/internal/logger"
 )
 
 // PTP/IP packet types (PTP/IP specification, Annex A).
@@ -245,7 +246,7 @@ func (c *Client) DeleteObject(ctx context.Context, image Image) error {
 		c.closeConns()
 		return fmt.Errorf("delete %q: %w", image.Filename, err)
 	}
-	log.Printf("level=info component=canon msg=\"deleted from camera\" file=%q handle=0x%08X", image.Filename, handle)
+	logger.Info("component=canon msg=\"deleted from camera\" file=%q handle=0x%08X", image.Filename, handle)
 	return nil
 }
 
@@ -290,7 +291,7 @@ func (c *Client) ensureConnected(ctx context.Context) error {
 		if attempt == maxAttempts {
 			break
 		}
-		log.Printf("level=warn component=canon msg=\"reconnect failed, retrying\" attempt=%d backoff=%s err=%q", attempt, backoff, lastErr)
+		logger.Warn("component=canon msg=\"reconnect failed, retrying\" attempt=%d backoff=%s err=%q", attempt, backoff, lastErr)
 		select {
 		case <-time.After(backoff):
 		case <-ctx.Done():
@@ -358,14 +359,14 @@ func (c *Client) connectClient(ctx context.Context) error {
 	// and is not ready to handle PTP commands for ~5 seconds. Without this
 	// delay, the first GetObjectInfo call gets a connection reset.
 	// Ref: https://github.com/gphoto/gphoto2/issues/382
-	log.Printf("level=info component=canon msg=\"PTP session open, waiting for camera to settle\" remote=%q", cmdConn.RemoteAddr())
+	logger.Info("component=canon msg=\"PTP session open, waiting for camera to settle\" remote=%q", cmdConn.RemoteAddr())
 	select {
 	case <-time.After(5 * time.Second):
 	case <-ctx.Done():
 		c.closeConns()
 		return ctx.Err()
 	}
-	log.Printf("level=info component=canon msg=\"camera ready\" remote=%q", cmdConn.RemoteAddr())
+	logger.Info("component=canon msg=\"camera ready\" remote=%q", cmdConn.RemoteAddr())
 
 	// Drain the event channel in the background so its TCP buffer never fills
 	// and causes backpressure on the command channel.
@@ -407,17 +408,17 @@ func (c *Client) connectServer(ctx context.Context) error {
 			return fmt.Errorf("listen on %s: %w", c.listenAddr, err)
 		}
 		c.listener = ln
-		log.Printf("level=info component=canon msg=\"listening for camera\" addr=%q", c.listenAddr)
+		logger.Info("component=canon msg=\"listening for camera\" addr=%q", c.listenAddr)
 	}
 
-	log.Printf("level=info component=canon msg=\"waiting for camera to connect\" addr=%q", c.listenAddr)
+	logger.Info("component=canon msg=\"waiting for camera to connect\" addr=%q", c.listenAddr)
 
 	// Accept command channel — camera dials us first.
 	cmdConn, err := acceptWithContext(ctx, c.listener)
 	if err != nil {
 		return fmt.Errorf("accept command channel: %w", err)
 	}
-	log.Printf("level=info component=canon msg=\"camera connected (command channel)\" remote=%q", cmdConn.RemoteAddr())
+	logger.Info("component=canon msg=\"camera connected (command channel)\" remote=%q", cmdConn.RemoteAddr())
 
 	if err := c.sendInitCommandRequest(cmdConn); err != nil {
 		cmdConn.Close()
@@ -435,7 +436,7 @@ func (c *Client) connectServer(ctx context.Context) error {
 		cmdConn.Close()
 		return fmt.Errorf("accept event channel: %w", err)
 	}
-	log.Printf("level=info component=canon msg=\"camera connected (event channel)\" remote=%q", evtConn.RemoteAddr())
+	logger.Info("component=canon msg=\"camera connected (event channel)\" remote=%q", evtConn.RemoteAddr())
 
 	if err := c.sendInitEventRequest(evtConn, connNum); err != nil {
 		cmdConn.Close()
@@ -457,14 +458,14 @@ func (c *Client) connectServer(ctx context.Context) error {
 		return fmt.Errorf("open PTP session: %w", err)
 	}
 
-	log.Printf("level=info component=canon msg=\"PTP session open, waiting for camera to settle\" remote=%q", cmdConn.RemoteAddr())
+	logger.Info("component=canon msg=\"PTP session open, waiting for camera to settle\" remote=%q", cmdConn.RemoteAddr())
 	select {
 	case <-time.After(5 * time.Second):
 	case <-ctx.Done():
 		c.closeConns()
 		return ctx.Err()
 	}
-	log.Printf("level=info component=canon msg=\"camera ready\" remote=%q", cmdConn.RemoteAddr())
+	logger.Info("component=canon msg=\"camera ready\" remote=%q", cmdConn.RemoteAddr())
 	go c.drainEvents(evtConn)
 	return nil
 }
@@ -528,16 +529,16 @@ func (c *Client) listImages(ctx context.Context, knownImageHandles map[uint32]st
 	// Get storage IDs first (required before GetObjectHandles on many cameras).
 	storageIDs, err := c.getStorageIDs(ctx)
 	if err != nil {
-		log.Printf("level=warn component=canon msg=\"GetStorageIDs failed, falling back to 0xFFFFFFFF\" err=%q", err)
+		logger.Warn("component=canon msg=\"GetStorageIDs failed, falling back to 0xFFFFFFFF\" err=%q", err)
 		storageIDs = []uint32{0xFFFFFFFF}
 	}
-	log.Printf("level=debug component=canon msg=\"storage IDs\" ids=%v", storageIDs)
+	logger.Debug("component=canon msg=\"storage IDs\" ids=%v", storageIDs)
 
 	var images []Image
 	for _, sid := range storageIDs {
 		imgs, err := c.enumerateObjects(ctx, sid, 0xFFFFFFFF, 0, knownImageHandles, newFolderHandles)
 		if err != nil {
-			log.Printf("level=warn component=canon msg=\"enumerate failed\" storageID=0x%08X err=%q", sid, err)
+			logger.Warn("component=canon msg=\"enumerate failed\" storageID=0x%08X err=%q", sid, err)
 			return nil, err // propagate so caller closes and reconnects
 		}
 		images = append(images, imgs...)
@@ -563,7 +564,7 @@ func (c *Client) enumerateObjects(ctx context.Context, storageID, parent uint32,
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("level=debug component=canon msg=\"got handles\" storageID=0x%08X parent=0x%08X depth=%d count=%d", storageID, parent, depth, len(handles))
+	logger.Debug("component=canon msg=\"got handles\" storageID=0x%08X parent=0x%08X depth=%d count=%d", storageID, parent, depth, len(handles))
 
 	var images []Image
 	for _, handle := range handles {
@@ -585,7 +586,7 @@ func (c *Client) enumerateObjects(ctx context.Context, storageID, parent uint32,
 			}
 			if len(children) > 0 {
 				// Container: recurse using this handle as the new parent.
-				log.Printf("level=debug component=canon msg=\"virtual container\" handle=0x%08X children=%d", handle, len(children))
+				logger.Debug("component=canon msg=\"virtual container\" handle=0x%08X children=%d", handle, len(children))
 				if newFolderHandles != nil {
 					newFolderHandles[handle] = struct{}{}
 				}
@@ -596,14 +597,14 @@ func (c *Client) enumerateObjects(ctx context.Context, storageID, parent uint32,
 				images = append(images, imgs...)
 			} else {
 				// Leaf virtual handle — the actual image object. Try GetObjectInfo.
-				log.Printf("level=debug component=canon msg=\"virtual leaf, trying GetObjectInfo\" handle=0x%08X", handle)
+				logger.Debug("component=canon msg=\"virtual leaf, trying GetObjectInfo\" handle=0x%08X", handle)
 				info, err := c.getObjectInfo(ctx, handle)
 				if err != nil {
-					log.Printf("level=warn component=canon msg=\"virtual leaf GetObjectInfo failed\" handle=0x%08X err=%q", handle, err)
+					logger.Warn("component=canon msg=\"virtual leaf GetObjectInfo failed\" handle=0x%08X err=%q", handle, err)
 					return nil, err
 				}
 				if isImageFormat(info.format) {
-					log.Printf("level=debug component=canon msg=\"found image\" handle=0x%08X filename=%q", handle, info.filename)
+					logger.Debug("component=canon msg=\"found image\" handle=0x%08X filename=%q", handle, info.filename)
 					img := Image{
 						Handle:   handle,
 						URL:      c.handleURL(handle),
@@ -631,7 +632,7 @@ func (c *Client) enumerateObjects(ctx context.Context, storageID, parent uint32,
 
 		info, err := c.getObjectInfo(ctx, handle)
 		if err != nil {
-			log.Printf("level=warn component=canon msg=\"GetObjectInfo failed\" handle=0x%08X err=%q", handle, err)
+			logger.Warn("component=canon msg=\"GetObjectInfo failed\" handle=0x%08X err=%q", handle, err)
 			return nil, err
 		}
 		switch {
@@ -657,7 +658,7 @@ func (c *Client) enumerateObjects(ctx context.Context, storageID, parent uint32,
 			}
 			images = append(images, img)
 		default:
-			log.Printf("level=debug component=canon msg=\"skipping non-image\" handle=0x%08X format=0x%04X", handle, info.format)
+			logger.Debug("component=canon msg=\"skipping non-image\" handle=0x%08X format=0x%04X", handle, info.format)
 		}
 	}
 	return images, nil
@@ -765,7 +766,7 @@ func (c *Client) recvResponse(ctx context.Context, txID uint32) ([]uint32, error
 		if err != nil {
 			return nil, fmt.Errorf("recv response: %w", err)
 		}
-		log.Printf("level=debug component=canon msg=\"recvResponse pkt\" type=0x%02X len=%d txID=%d", pktType, len(payload), txID)
+		logger.Debug("component=canon msg=\"recvResponse pkt\" type=0x%02X len=%d txID=%d", pktType, len(payload), txID)
 		switch pktType {
 		case ptpipCmdResponse:
 			if len(payload) < 6 {
@@ -773,7 +774,7 @@ func (c *Client) recvResponse(ctx context.Context, txID uint32) ([]uint32, error
 			}
 			rc := binary.LittleEndian.Uint16(payload[0:2])
 			rTxID := binary.LittleEndian.Uint32(payload[2:6])
-			log.Printf("level=debug component=canon msg=\"response code\" rc=0x%04X rTxID=%d", rc, rTxID)
+			logger.Debug("component=canon msg=\"response code\" rc=0x%04X rTxID=%d", rc, rTxID)
 			if rTxID != txID {
 				continue
 			}
@@ -788,7 +789,7 @@ func (c *Client) recvResponse(ctx context.Context, txID uint32) ([]uint32, error
 		case ptpipPing:
 			_ = sendPacket(c.cmdConn, ptpipPong, nil)
 		default:
-			log.Printf("level=debug component=canon msg=\"unexpected packet in recvResponse\" type=0x%02X len=%d", pktType, len(payload))
+			logger.Debug("component=canon msg=\"unexpected packet in recvResponse\" type=0x%02X len=%d", pktType, len(payload))
 		}
 	}
 }
@@ -838,7 +839,7 @@ func (c *Client) recvData(ctx context.Context, txID uint32) ([]byte, error) {
 		case ptpipPing:
 			_ = sendPacket(c.cmdConn, ptpipPong, nil)
 		default:
-			log.Printf("level=debug component=canon msg=\"unexpected packet in recvData\" type=0x%02X len=%d", pktType, len(payload))
+			logger.Debug("component=canon msg=\"unexpected packet in recvData\" type=0x%02X len=%d", pktType, len(payload))
 		}
 	}
 }
@@ -886,7 +887,7 @@ func (c *Client) sendInitCommandRequest(conn net.Conn) error {
 	copy(payload[0:16], clientGUID[:])
 	copy(payload[16:], name)
 	binary.LittleEndian.PutUint32(payload[16+len(name):], 0x00010000) // version 1.0
-	log.Printf("level=debug component=canon msg=\"sending InitCommandRequest\" guid=%x name=%q", clientGUID, "canon-proxy")
+	logger.Debug("component=canon msg=\"sending InitCommandRequest\" guid=%x name=%q", clientGUID, "canon-proxy")
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
 	return sendPacket(conn, ptpipInitCommandRequest, payload)
 }
@@ -911,7 +912,7 @@ func (c *Client) recvInitCommandAck(conn net.Conn) (connNum uint32, err error) {
 		return 0, fmt.Errorf("InitCommandAck payload too short")
 	}
 	connNum = binary.LittleEndian.Uint32(payload[0:4])
-	log.Printf("level=debug component=canon msg=\"InitCommandAck received\" conn_num=0x%08X", connNum)
+	logger.Debug("component=canon msg=\"InitCommandAck received\" conn_num=0x%08X", connNum)
 	return connNum, nil
 }
 

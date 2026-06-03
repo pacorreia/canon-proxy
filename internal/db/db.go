@@ -2,14 +2,14 @@ package db
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/glebarez/sqlite"
+	"github.com/pacorreia/canon-proxy/internal/logger"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // Open initialises the database connection and runs auto-migration.
@@ -28,7 +28,7 @@ func Open(driver, dsn string) (*gorm.DB, error) {
 	}
 
 	db, err := gorm.Open(dialector, &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Warn),
+		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
@@ -38,6 +38,6 @@ func Open(driver, dsn string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("migrate database: %w", err)
 	}
 
-	log.Printf("level=info component=db msg=\"database ready\" driver=%q", driver)
+	logger.Info("component=db msg=\"database ready\" driver=%q", driver)
 	return db, nil
 }
