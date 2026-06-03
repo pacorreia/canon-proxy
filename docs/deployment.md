@@ -12,6 +12,7 @@ The simplest way to run canon-proxy in Docker. Docker's iptables MASQUERADE rewr
 
 ```bash
 docker run --rm \
+  # Ensure database.dsn points at /data/canon-proxy.db to persist state in the /data volume
   -v "$(pwd)/config.yaml:/app/config.yaml:ro" \
   -v canon-proxy-data:/data \
   -p 9090:9090 \
