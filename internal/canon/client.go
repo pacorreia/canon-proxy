@@ -53,10 +53,15 @@ const (
 const ptpRCOK uint16 = 0x2001
 
 // clientGUID is the GUID advertised by this initiator to the camera.
+// It can be overridden at startup via SetClientGUID.
 var clientGUID = [16]byte{
 	0xca, 0xfe, 0xba, 0xbe, 0xde, 0xad, 0xbe, 0xef,
 	0x00, 0x01, 0x63, 0x61, 0x6e, 0x6f, 0x6e, 0x78,
 }
+
+// SetClientGUID overrides the GUID advertised to the camera during PTP/IP
+// initialisation. Call this before creating any Client or calling DiscoverLAN.
+func SetClientGUID(g [16]byte) { clientGUID = g }
 
 // Image represents a camera image identified by a PTP object handle.
 // URL encodes the handle as ptpip://<host>:<port>/<handle>.

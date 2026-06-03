@@ -73,6 +73,15 @@ func main() {
 	// Apply the stored log level immediately.
 	logger.SetLevel(getStr(appSettings, "log.level", "info"))
 
+	// Apply the stored client GUID so all PTP/IP sessions use the configured value.
+	if guidStr := getStr(appSettings, "camera.guid", ""); guidStr != "" {
+		if g, ok := parseGUID(guidStr); ok {
+			canon.SetClientGUID(g)
+		} else {
+			logger.Warn("msg=\"invalid camera.guid in settings; using default\" value=%q", guidStr)
+		}
+	}
+
 	// Build camera client.
 	cameraHost := getStr(appSettings, "camera.host", cfg.Camera.Host)
 	cameraPort := getInt(appSettings, "camera.port", cfg.Camera.Port, 15740)
@@ -198,6 +207,7 @@ func seedSettingsFromConfig(repo *db.SettingRepo, cfg *config.Config) {
 		"camera.listen_addr":       cfg.Camera.ListenAddr,
 		"camera.poll_interval":     cfg.Camera.PollInterval.String(),
 		"camera.delete_after_upload": strconv.FormatBool(cfg.Camera.DeleteAfterUpload),
+		"camera.guid":              "cafebabe-dead-beef-0001-63616e6f6e78",
 		"upload.backend":       cfg.Upload.Backend,
 		"upload.workers":       strconv.Itoa(cfg.Upload.Workers),
 		"smb.host":             cfg.Backends.SMB.Host,
@@ -288,6 +298,26 @@ func envOrVal(envKey, val string) string {
 		return e
 	}
 	return val
+}
+
+// parseGUID parses a 32-hex-digit UUID string (with or without dashes) into a
+// [16]byte array. Returns false when the string is not a valid 32-hex-digit GUID.
+func parseGUID(s string) ([16]byte, bool) {
+	// Strip dashes so both "cafebabe-dead-beef-0001-63616e6f6e78" and
+	// "cafebabedead beef000163616e6f6e78" (without dashes) are accepted.
+	stripped := strings.ReplaceAll(s, "-", "")
+	if len(stripped) != 32 {
+		return [16]byte{}, false
+	}
+	var out [16]byte
+	for i := 0; i < 16; i++ {
+		b, err := strconv.ParseUint(stripped[i*2:i*2+2], 16, 8)
+		if err != nil {
+			return [16]byte{}, false
+		}
+		out[i] = byte(b)
+	}
+	return out, true
 }
 
 func init() {
