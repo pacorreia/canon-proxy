@@ -1,6 +1,8 @@
 apiVersion: v2
 name: canon-proxy
-description: Canon EOS PTP/IP proxy — discovers, downloads, and uploads camera images to a NAS or cloud storage
+description: >-
+  Canon EOS PTP/IP proxy — discovers, downloads, and uploads camera images to a
+  NAS or cloud storage
 type: application
-version: 0.1.0
-appVersion: "latest"
+version: 1.0.0
+appVersion: 1.0.0
