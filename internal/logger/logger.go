@@ -25,7 +25,8 @@ const (
 	LevelError
 )
 
-// currentLevel is the minimum level that will be emitted.  Defaults to Info.
+// currentLevel holds the active minimum log severity threshold; messages below
+// this level are silently dropped.  Defaults to Info.
 var currentLevel atomic.Int32
 
 func init() {

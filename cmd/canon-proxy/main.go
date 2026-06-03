@@ -53,7 +53,7 @@ func main() {
 	// Used below to warn when config.yaml provides camera settings that will be ignored.
 	existingCameraHost, _ := settingRepo.Get("camera.host")
 	existingListenAddr, _ := settingRepo.Get("camera.listen_addr")
-	dbHasCameraConfig := strings.TrimSpace(existingCameraHost) != "" || strings.TrimSpace(existingListenAddr) != ""
+	dbHasCameraConfig := hasCameraSettings(existingCameraHost, existingListenAddr)
 
 	// Seed default settings from config (only inserts if key not yet present).
 	seedSettingsFromConfig(settingRepo, cfg)
@@ -79,7 +79,7 @@ func main() {
 	listenAddr := getStr(appSettings, "camera.listen_addr", cfg.Camera.ListenAddr)
 	pollInterval := getDuration(appSettings, "camera.poll_interval", cfg.Camera.PollInterval, 5*time.Second)
 
-	hasCameraConfig := strings.TrimSpace(cameraHost) != "" || strings.TrimSpace(listenAddr) != ""
+	hasCameraConfig := hasCameraSettings(cameraHost, listenAddr)
 
 	var client *canon.Client
 	var poller *canon.Poller
@@ -179,6 +179,7 @@ func main() {
 			logger.Fatal("msg=\"pipeline terminated with error\" err=%q", err)
 		}
 	} else {
+		logger.Info("msg=\"running without camera polling; waiting for web UI interactions or shutdown signal\"")
 		<-ctx.Done()
 	}
 	logger.Info("msg=\"canon proxy stopped\"")
@@ -226,6 +227,11 @@ func seedSettingsFromConfig(repo *db.SettingRepo, cfg *config.Config) {
 }
 
 // ---- helpers ----------------------------------------------------------------
+
+// hasCameraSettings reports whether a camera host or listen address is set.
+func hasCameraSettings(host, listenAddr string) bool {
+	return strings.TrimSpace(host) != "" || strings.TrimSpace(listenAddr) != ""
+}
 
 func getStr(m map[string]string, key, fallback string) string {
 	if v, ok := m[key]; ok && v != "" {
