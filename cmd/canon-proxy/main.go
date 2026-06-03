@@ -67,6 +67,9 @@ func main() {
 	if listenAddr != "" {
 		client = canon.NewServerClient(listenAddr, cameraHost)
 	} else {
+		if strings.TrimSpace(cameraHost) == "" {
+			log.Fatalf("level=fatal msg=\"camera.host is required when camera.listen_addr is not set\"")
+		}
 		client = canon.NewClient(cameraHost, cameraPort)
 	}
 	poller := canon.NewPoller(client, pollInterval)
