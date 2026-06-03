@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/pacorreia/canon-proxy/compare/v1.0.0...v1.1.0) (2026-06-03)
+
+
+### Features
+
+* make config.yaml optional and skip camera when not configured ([7fbfd01](https://github.com/pacorreia/canon-proxy/commit/7fbfd0103a217d05087b6d67a5d05622fbd51a14))
+
+
+### Bug Fixes
+
+* Merge pull request [#17](https://github.com/pacorreia/canon-proxy/issues/17) from pacorreia/copilot/make-config-optional ([17c8ac8](https://github.com/pacorreia/canon-proxy/commit/17c8ac899b4d430984c16568a1159577335042ed))
+
 ## 1.0.0 (2026-06-03)
 
 
