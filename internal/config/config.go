@@ -12,6 +12,7 @@ type Config struct {
 	Camera   CameraConfig   `yaml:"camera"`
 	Upload   UploadConfig   `yaml:"upload"`
 	Backends BackendsConfig `yaml:"backends"`
+	Web      WebConfig      `yaml:"web"`
 }
 
 type CameraConfig struct {
@@ -71,6 +72,17 @@ type GCSConfig struct {
 	CredentialsFile string `yaml:"credentials_file"`
 }
 
+// WebConfig configures the optional web UI server.
+type WebConfig struct {
+	// Listen is the address for the HTTP server, e.g. ":9090".
+	// Defaults to ":9090" when the web server is enabled.
+	Listen string `yaml:"listen"`
+	// Mode controls pipeline behaviour:
+	//   "auto"   – every detected image is pushed immediately (default, current behaviour).
+	//   "manual" – images are queued in the UI; user selects which to push.
+	Mode string `yaml:"mode"`
+}
+
 func Load(path string) (*Config, error) {
 	cfg := &Config{
 		Camera: CameraConfig{
@@ -82,6 +94,10 @@ func Load(path string) (*Config, error) {
 		},
 		Backends: BackendsConfig{
 			FTP: FTPConfig{Port: 21},
+		},
+		Web: WebConfig{
+			Listen: ":9090",
+			Mode:   "auto",
 		},
 	}
 
