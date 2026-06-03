@@ -68,14 +68,11 @@ Go to **Settings** in the web UI and configure your preferred backend. For examp
 | Password | `secret` |
 | Path | `/uploads` |
 
-## 6. Choose upload mode
+## 6. Queue images for upload
 
-| Mode | Behaviour |
-|---|---|
-| `auto` | Every new image is uploaded immediately — fully hands-free |
-| `manual` | Images appear in the UI; you select which ones to push |
+Images are discovered automatically and shown in the web UI. Select the ones you want and click **Queue selected** or **Queue all** to start uploading.
 
-Switch modes from the **Settings** page at any time without restarting.
+Uploads start as soon as an image is queued.
 
 ## Next Steps
 
