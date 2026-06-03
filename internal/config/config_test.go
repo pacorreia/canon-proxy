@@ -36,3 +36,31 @@ upload:
 		t.Fatalf("expected default upload workers 4, got %d", cfg.Upload.Workers)
 	}
 }
+
+func TestLoadSetsLoaded(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+
+	// File present: Loaded must be true.
+	if err := os.WriteFile(cfgPath, []byte("camera:\n  host: \"1.2.3.4\"\n"), 0o600); err != nil {
+		t.Fatalf("write config file: %v", err)
+	}
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if !cfg.Loaded {
+		t.Fatal("expected Loaded=true when config file is present")
+	}
+
+	// File absent: Loaded must be false and no error returned.
+	cfg, err = Load(filepath.Join(dir, "nonexistent.yaml"))
+	if err != nil {
+		t.Fatalf("load with missing file: %v", err)
+	}
+	if cfg.Loaded {
+		t.Fatal("expected Loaded=false when config file is absent")
+	}
+}

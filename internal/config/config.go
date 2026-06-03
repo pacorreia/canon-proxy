@@ -22,6 +22,10 @@ type Config struct {
 	Camera   CameraConfig   `yaml:"camera"`
 	Upload   UploadConfig   `yaml:"upload"`
 	Backends BackendsConfig `yaml:"backends"`
+
+	// Loaded is true when a config file was found and successfully decoded.
+	// It is false when the file was absent and defaults were used.
+	Loaded bool `yaml:"-"`
 }
 
 // DatabaseConfig selects the database backend and connection string.
@@ -141,5 +145,6 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("decode config yaml: %w", err)
 	}
 
+	cfg.Loaded = true
 	return cfg, nil
 }

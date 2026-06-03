@@ -48,8 +48,20 @@ func main() {
 	imageRepo := db.NewImageRepo(gdb)
 	settingRepo := db.NewSettingRepo(gdb)
 
+	// Check if camera settings already exist in the database before seeding.
+	// Used below to warn when config.yaml provides camera settings that will be ignored.
+	existingCameraHost, _ := settingRepo.Get("camera.host")
+	existingListenAddr, _ := settingRepo.Get("camera.listen_addr")
+	dbHasCameraConfig := strings.TrimSpace(existingCameraHost) != "" || strings.TrimSpace(existingListenAddr) != ""
+
 	// Seed default settings from config (only inserts if key not yet present).
 	seedSettingsFromConfig(settingRepo, cfg)
+
+	// Warn when config.yaml provides camera/upload/backend settings that the database
+	// already has its own values for — the file values are silently ignored by SeedDefaults.
+	if cfg.Loaded && dbHasCameraConfig && (cfg.Camera.Host != "" || cfg.Camera.ListenAddr != "") {
+		log.Printf("level=warn msg=\"camera settings in config.yaml will be ignored; settings already stored in database\"")
+	}
 
 	// Load app settings from database.
 	appSettings, err := settingRepo.All()
@@ -63,16 +75,20 @@ func main() {
 	listenAddr := getStr(appSettings, "camera.listen_addr", cfg.Camera.ListenAddr)
 	pollInterval := getDuration(appSettings, "camera.poll_interval", cfg.Camera.PollInterval, 5*time.Second)
 
+	hasCameraConfig := strings.TrimSpace(cameraHost) != "" || strings.TrimSpace(listenAddr) != ""
+
 	var client *canon.Client
-	if listenAddr != "" {
-		client = canon.NewServerClient(listenAddr, cameraHost)
-	} else {
-		if strings.TrimSpace(cameraHost) == "" {
-			log.Fatalf("level=fatal msg=\"camera.host is required when camera.listen_addr is not set\"")
+	var poller *canon.Poller
+	if hasCameraConfig {
+		if listenAddr != "" {
+			client = canon.NewServerClient(listenAddr, cameraHost)
+		} else {
+			client = canon.NewClient(cameraHost, cameraPort)
 		}
-		client = canon.NewClient(cameraHost, cameraPort)
+		poller = canon.NewPoller(client, pollInterval)
+	} else {
+		log.Printf("level=warn msg=\"no camera configured; polling will not start until camera settings are saved via the web UI\"")
 	}
-	poller := canon.NewPoller(client, pollInterval)
 
 	// Build upload backend.
 	uploadBackend, err := backend.NewFromSettings(appSettings)
@@ -112,12 +128,17 @@ func main() {
 		p.Queue(imgs)
 	}
 
-	thumbFunc := func(ctx context.Context, imageURL string) (io.ReadCloser, error) {
-		return client.GetThumb(ctx, imageURL)
-	}
-
-	downloadFunc := func(ctx context.Context, image canon.Image) (io.ReadCloser, error) {
-		return client.DownloadImage(ctx, image)
+	// thumbFunc and downloadFunc are only set when a camera client is available.
+	// The web server handles nil values gracefully (returns 503).
+	var thumbFunc web.ThumbFunc
+	var downloadFunc web.DownloadFunc
+	if client != nil {
+		thumbFunc = func(ctx context.Context, imageURL string) (io.ReadCloser, error) {
+			return client.GetThumb(ctx, imageURL)
+		}
+		downloadFunc = func(ctx context.Context, image canon.Image) (io.ReadCloser, error) {
+			return client.DownloadImage(ctx, image)
+		}
 	}
 
 	// restartFunc re-execs the current process in-place, inheriting all
@@ -144,8 +165,12 @@ func main() {
 
 	go srv.Start(ctx)
 
-	if err := p.Run(ctx); err != nil {
-		log.Fatalf("level=fatal msg=\"pipeline terminated with error\" err=%q", err)
+	if hasCameraConfig {
+		if err := p.Run(ctx); err != nil {
+			log.Fatalf("level=fatal msg=\"pipeline terminated with error\" err=%q", err)
+		}
+	} else {
+		<-ctx.Done()
 	}
 	log.Printf("level=info msg=\"canon proxy stopped\"")
 }
