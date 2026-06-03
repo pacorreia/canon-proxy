@@ -100,10 +100,10 @@ backends:
 ```yaml
 backends:
   azure:
-    account_name: "mystorageaccount"
-    account_key: "..."
+    account: "mystorageaccount"
     container: "photos"
-    path_prefix: "camera/"
+    prefix: "camera/"
+    sas_token: "..."
 ```
 
 ### Google Cloud Storage
