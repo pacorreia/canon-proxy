@@ -757,7 +757,11 @@ func (s *Server) handleRestart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	// Minimal hardening: only allow restarts from localhost.
+	// Minimal hardening: only allow restarts from localhost and only when not behind a proxy.
+	if r.Header.Get("Forwarded") != "" || r.Header.Get("X-Forwarded-For") != "" || r.Header.Get("X-Real-IP") != "" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
 	if !strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") && !strings.HasPrefix(r.RemoteAddr, "[::1]:") {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
