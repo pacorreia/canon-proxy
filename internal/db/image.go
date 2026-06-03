@@ -113,7 +113,6 @@ func (r *ImageRepo) ListFreshQueued() ([]ImageRecord, error) {
 	return recs, err
 }
 
-// GetByURL returns the image with the given URL, or nil if not found.
 func (r *ImageRepo) GetByURL(url string) (*ImageRecord, error) {
 	var rec ImageRecord
 	err := r.db.Where("url = ?", url).First(&rec).Error
