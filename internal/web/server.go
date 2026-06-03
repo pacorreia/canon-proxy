@@ -618,6 +618,21 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to load settings", http.StatusInternalServerError)
 		return
 	}
+	// Redact secret credential fields so they are never exposed via the API.
+	// Users can update these keys via PUT /api/settings (write-only).
+	secretKeys := map[string]bool{
+		"smb.password":   true,
+		"ftp.password":   true,
+		"s3.secret_key":  true,
+		"azure.sas_token": true,
+	}
+	for k := range m {
+		if secretKeys[k] {
+			if m[k] != "" {
+				m[k] = "********"
+			}
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(m); err != nil {
 		log.Printf("level=error component=web msg=\"encode settings\" err=%q", err)

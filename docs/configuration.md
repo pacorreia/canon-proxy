@@ -111,7 +111,7 @@ backends:
   gcs:
     bucket: "my-gcs-bucket"
     credentials_file: "/secrets/gcs-key.json"
-    path_prefix: "camera/"
+    prefix: "camera/"
 ```
 
 ---
