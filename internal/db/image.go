@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
