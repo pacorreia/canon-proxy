@@ -40,7 +40,8 @@ func NewImageRepo(db *gorm.DB) *ImageRepo {
 }
 
 // FindOrCreate inserts a new image record if it doesn't already exist (by URL).
-// Returns the record and a boolean indicating whether it was newly created.
+// Returns the record and a boolean indicating whether it was newly created or reset
+// (e.g. when the camera reuses a handle/URL for a different file after delete-after-upload).
 func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, isVideo bool) (*ImageRecord, bool, error) {
 	var rec ImageRecord
 	result := r.db.Where("url = ?", url).First(&rec)
@@ -81,7 +82,7 @@ func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, is
 		rec.NextRetryAt = nil
 		rec.CapturedAt = capturedAt
 		rec.IsVideo = isVideo
-		return &rec, false, nil
+		return &rec, true, nil
 	}
 	// Backfill CapturedAt if we now have it and the record doesn't.
 	updates := map[string]interface{}{}
