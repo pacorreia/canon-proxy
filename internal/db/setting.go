@@ -76,4 +76,3 @@ func (r *SettingRepo) SeedDefaults(defaults map[string]string) error {
 	}
 	return nil
 }
-}

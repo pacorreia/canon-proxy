@@ -117,7 +117,7 @@ func Load(path string) (*Config, error) {
 			PollInterval: 5 * time.Second,
 		},
 		Upload: UploadConfig{
-			Workers: 1,
+			Workers: 4,
 		},
 		Backends: BackendsConfig{
 			FTP: FTPConfig{Port: 21},
