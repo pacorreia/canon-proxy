@@ -651,6 +651,18 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid JSON body", http.StatusBadRequest)
 		return
 	}
+	// Prevent redacted placeholders (or empty values) from clobbering stored secrets.
+	secretKeys := map[string]bool{
+		"smb.password":    true,
+		"ftp.password":    true,
+		"s3.secret_key":   true,
+		"azure.sas_token": true,
+	}
+	for k, v := range kv {
+		if secretKeys[k] && (v == "" || v == "********") {
+			delete(kv, k)
+		}
+	}
 	if err := s.settingRepo.SetMany(kv); err != nil {
 		log.Printf("level=error component=web msg=\"save settings\" err=%q", err)
 		http.Error(w, "failed to save settings", http.StatusInternalServerError)
