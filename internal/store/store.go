@@ -193,6 +193,19 @@ func (s *Store) ListReadyToRetry() []Entry {
 	return recsToEntries(recs)
 }
 
+// ResetQueued resets all "queued" images back to "discovered", cancelling pending uploads.
+// Returns the number of records updated.
+func (s *Store) ResetQueued() int64 {
+	n, err := s.repo.ResetQueued()
+	if err != nil {
+		log.Printf("level=error component=store msg=\"ResetQueued failed\" err=%q", err)
+	}
+	if n > 0 {
+		s.notify()
+	}
+	return n
+}
+
 // ResetStuckUploading resets images interrupted mid-upload (e.g. by a crash) to queued.
 func (s *Store) ResetStuckUploading() {
 	_ = s.repo.ResetStuckUploading()

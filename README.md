@@ -36,9 +36,13 @@ go run ./cmd/canon-proxy --config config.yaml
 # Default bridge network (recommended — Docker NAT rewrites source to host LAN IP)
 docker run --rm \
   -v "$(pwd)/config.example.yaml:/app/config.yaml:ro" \
+  -v "$(pwd)/data:/data" \
   -p 9090:9090 \
   ghcr.io/pacorreia/canon-proxy:latest
 ```
+
+> **Tip:** Set `database.dsn: /data/canon-proxy.db` in your `config.yaml` so the SQLite
+> database persists across container restarts on the `/data` volume.
 
 ## Kubernetes (Helm)
 

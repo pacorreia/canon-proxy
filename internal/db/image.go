@@ -202,6 +202,21 @@ func (r *ImageRepo) MarkAllDiscoveredQueued() (int64, error) {
 	return result.RowsAffected, result.Error
 }
 
+// ResetQueued resets all images in "queued" status back to "discovered".
+// Used by ClearQueue to cancel pending uploads that are not yet in the worker channel.
+// Returns the number of records updated.
+func (r *ImageRepo) ResetQueued() (int64, error) {
+	result := r.db.Model(&ImageRecord{}).
+		Where("status = ?", StatusQueued).
+		Updates(map[string]interface{}{
+			"status":        StatusDiscovered,
+			"retry_count":   0,
+			"last_error":    "",
+			"next_retry_at": nil,
+		})
+	return result.RowsAffected, result.Error
+}
+
 // ResetStuckUploading resets images stuck in "uploading" (interrupted by restart) to "queued".
 func (r *ImageRepo) ResetStuckUploading() error {
 	return r.db.Model(&ImageRecord{}).

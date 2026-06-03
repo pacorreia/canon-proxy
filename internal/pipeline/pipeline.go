@@ -83,9 +83,14 @@ func (p *Pipeline) IsPaused() bool {
 	return p.paused
 }
 
-// ClearQueue drains the in-memory push channel and resets images to "discovered".
+// ClearQueue drains the in-memory push channel and resets all queued images to "discovered".
+// This covers both items already in the worker channel and items still waiting in the DB
+// (which would otherwise be re-enqueued by retryScheduler on the next tick).
 func (p *Pipeline) ClearQueue() int {
-	n := 0
+	// Reset all DB-queued records first so the retryScheduler doesn't re-enqueue them.
+	n := int(p.store.ResetQueued())
+	// Also drain any items already sitting in the channel (they may have been set to
+	// "uploading" by Queue(); reset them to "discovered" as well).
 	for {
 		select {
 		case img := <-p.pushCh:
