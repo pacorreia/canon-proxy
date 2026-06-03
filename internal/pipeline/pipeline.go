@@ -171,9 +171,11 @@ func (p *Pipeline) retryScheduler(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if !p.awaitGate(ctx) {
+				return
+			}
 			todo := append(p.store.AllFreshQueued(), p.store.ListReadyToRetry()...)
 			for _, e := range todo {
-				p.store.SetStatus(e.URL, store.StatusUploading, "")
 				img := canon.Image{Filename: e.Filename, URL: e.URL}
 				select {
 				case p.pushCh <- img:
