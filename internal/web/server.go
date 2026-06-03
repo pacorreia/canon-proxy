@@ -672,11 +672,14 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleRestart — POST /api/system/restart
-// Responds 202 then re-execs the current process after a short delay.
 func (s *Server) handleRestart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// Minimal hardening: only allow restarts from localhost.
+	if !strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") && !strings.HasPrefix(r.RemoteAddr, "[::1]:") {
+		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	if s.restartFunc == nil {
