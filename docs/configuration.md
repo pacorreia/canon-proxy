@@ -134,9 +134,6 @@ database:
 
 ## Environment variable overrides
 
-Sensitive values (passwords, keys) can be supplied via environment variables to avoid storing them in the config file. Use the pattern `CANON_<SECTION>_<KEY>`, e.g.:
+Environment variable overrides are not currently implemented.
 
-```
-CANON_BACKENDS_SMB_PASSWORD=mysecret
-CANON_BACKENDS_S3_SECRET_ACCESS_KEY=...
-```
+Use the Settings page (persisted in SQLite) or provide values in `config.yaml` on first run.
