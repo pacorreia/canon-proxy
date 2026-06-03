@@ -1,0 +1,68 @@
+[project]
+
+docs_dir = "."
+
+site_name = "canon-proxy"
+site_description = "Canon EOS PTP/IP proxy — discovers camera images over WiFi and uploads them to NAS or cloud storage."
+site_author = "Paulo Correia"
+site_url = "https://pacorreia.github.io/canon-proxy"
+
+copyright = """
+Copyright &copy; 2026 Paulo Correia &ndash; MIT License
+"""
+
+nav = [
+  { "Home"          = "index.md" },
+  { "Getting Started" = "getting-started.md" },
+  { "Configuration" = "configuration.md" },
+  { "Architecture"  = "architecture.md" },
+  { "Deployment"    = "deployment.md" },
+]
+
+[project.theme]
+
+variant = "classic"
+language = "en"
+
+features = [
+  "content.code.annotate",
+  "content.code.copy",
+  "content.code.select",
+  "content.tabs.link",
+  "content.tooltips",
+  "navigation.expand",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "search.share",
+  "search.suggest",
+  "toc.integrate",
+]
+
+[project.theme.icon]
+logo = "lucide/camera"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme  = "default"
+primary = "deep-purple"
+accent  = "purple"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme  = "slate"
+primary = "deep-purple"
+accent  = "purple"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/pacorreia/canon-proxy"

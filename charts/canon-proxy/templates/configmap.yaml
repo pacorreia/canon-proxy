@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "canon-proxy.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "canon-proxy.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    database:
+      driver: sqlite
+      dsn: /data/canon-proxy.db
+
+    web:
+      listen: ":{{ .Values.web.port }}"
+
+    camera:
+      host: {{ .Values.camera.host | quote }}
+      port: {{ .Values.camera.port }}
+      poll_interval: {{ .Values.camera.pollInterval | quote }}
+      delete_after_upload: {{ .Values.camera.deleteAfterUpload }}
+
+    upload:
+      workers: {{ .Values.upload.workers }}
+      backend: {{ .Values.upload.backend | quote }}
+
+    backends:
+      smb:
+        host: {{ .Values.backends.smb.host | quote }}
+        share: {{ .Values.backends.smb.share | quote }}
+        username: {{ .Values.backends.smb.username | quote }}
+        path: {{ .Values.backends.smb.path | quote }}
+      ftp:
+        host: {{ .Values.backends.ftp.host | quote }}
+        port: {{ .Values.backends.ftp.port }}
+        username: {{ .Values.backends.ftp.username | quote }}
+        path: {{ .Values.backends.ftp.path | quote }}
+      s3:
+        region: {{ .Values.backends.s3.region | quote }}
+        bucket: {{ .Values.backends.s3.bucket | quote }}
+        prefix: {{ .Values.backends.s3.prefix | quote }}
+        access_key: {{ .Values.backends.s3.accessKeyID | quote }}
+      azure:
+        account: {{ .Values.backends.azure.accountName | quote }}
+        container: {{ .Values.backends.azure.container | quote }}
+        prefix: {{ .Values.backends.azure.prefix | quote }}
+      gcs:
+        bucket: {{ .Values.backends.gcs.bucket | quote }}
