@@ -430,7 +430,7 @@ func (s *Server) serveDownloadSingle(w http.ResponseWriter, r *http.Request, fil
 		return
 	}
 	defer rc.Close()
-	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
 	w.Header().Set("Cache-Control", "no-store")
 	if _, err := io.Copy(w, rc); err != nil {
