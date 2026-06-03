@@ -720,8 +720,10 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 
 	// Replay recent history so the viewer is immediately useful.
 	for _, line := range history {
-		fmt.Fprintf(w, "data: %s\n\n", line)
+		safe := strings.NewReplacer("\n", "\\n", "\r", "\\r").Replace(line)
+		fmt.Fprintf(w, "data: %s\n\n", safe)
 	}
+	flusher.Flush()
 	flusher.Flush()
 
 	for {
