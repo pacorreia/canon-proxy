@@ -33,10 +33,8 @@ func DiscoverLAN(ctx context.Context) ([]DiscoveredCamera, error) {
 	)
 
 	for _, ip := range addrs {
-		select {
-		case <-ctx.Done():
+		if err := ctx.Err(); err != nil {
 			break
-		default:
 		}
 		wg.Add(1)
 		sem <- struct{}{}
