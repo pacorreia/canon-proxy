@@ -51,8 +51,6 @@ upload:
 |---|---|
 | `workers` | Number of concurrent upload goroutines |
 | `backend` | Which storage backend to use |
-| `mode` | `auto` uploads everything immediately; `manual` waits for user action |
-| `delete_after_upload` | Remove the image from the camera after a successful upload |
 
 ---
 
