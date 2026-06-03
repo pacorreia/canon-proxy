@@ -41,8 +41,9 @@ type CameraConfig struct {
 	// the proxy listens on this address and the camera connects to us.
 	// Use this for Canon EOS "Computer" WiFi in infrastructure networks.
 	// Example: ":15740"
-	ListenAddr   string        `yaml:"listen_addr"`
-	PollInterval time.Duration `yaml:"poll_interval"`
+	ListenAddr        string        `yaml:"listen_addr"`
+	PollInterval      time.Duration `yaml:"poll_interval"`
+	DeleteAfterUpload bool          `yaml:"delete_after_upload"`
 }
 
 type UploadConfig struct {
@@ -135,6 +136,7 @@ func Load(path string) (*Config, error) {
 	defer f.Close()
 
 	dec := yaml.NewDecoder(f)
+	dec.KnownFields(true)
 	if err := dec.Decode(cfg); err != nil {
 		return nil, fmt.Errorf("decode config yaml: %w", err)
 	}

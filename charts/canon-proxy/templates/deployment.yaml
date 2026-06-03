@@ -67,11 +67,11 @@ spec:
                   name: {{ include "canon-proxy.secretName" . }}
                   key: s3-secret-key
                   optional: true
-            - name: AZURE_ACCOUNT_KEY
+            - name: AZURE_SAS_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "canon-proxy.secretName" . }}
-                  key: azure-account-key
+                  key: azure-sas-token
                   optional: true
           volumeMounts:
             - name: config

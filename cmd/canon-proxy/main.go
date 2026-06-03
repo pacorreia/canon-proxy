@@ -158,29 +158,29 @@ func seedSettingsFromConfig(repo *db.SettingRepo, cfg *config.Config) {
 		"camera.port":              strconv.Itoa(cfg.Camera.Port),
 		"camera.listen_addr":       cfg.Camera.ListenAddr,
 		"camera.poll_interval":     cfg.Camera.PollInterval.String(),
-		"camera.delete_after_upload": "false",
+		"camera.delete_after_upload": strconv.FormatBool(cfg.Camera.DeleteAfterUpload),
 		"upload.backend":       cfg.Upload.Backend,
 		"upload.workers":       strconv.Itoa(cfg.Upload.Workers),
 		"smb.host":             cfg.Backends.SMB.Host,
 		"smb.share":            cfg.Backends.SMB.Share,
 		"smb.username":         cfg.Backends.SMB.Username,
-		"smb.password":         cfg.Backends.SMB.Password,
+		"smb.password":         envOrVal("SMB_PASSWORD", cfg.Backends.SMB.Password),
 		"smb.path":             cfg.Backends.SMB.Path,
 		"ftp.host":             cfg.Backends.FTP.Host,
 		"ftp.port":             strconv.Itoa(cfg.Backends.FTP.Port),
 		"ftp.username":         cfg.Backends.FTP.Username,
-		"ftp.password":         cfg.Backends.FTP.Password,
+		"ftp.password":         envOrVal("FTP_PASSWORD", cfg.Backends.FTP.Password),
 		"ftp.tls":              strconv.FormatBool(cfg.Backends.FTP.TLS),
 		"ftp.path":             cfg.Backends.FTP.Path,
 		"s3.bucket":            cfg.Backends.S3.Bucket,
 		"s3.region":            cfg.Backends.S3.Region,
 		"s3.prefix":            cfg.Backends.S3.Prefix,
 		"s3.access_key":        cfg.Backends.S3.AccessKey,
-		"s3.secret_key":        cfg.Backends.S3.SecretKey,
+		"s3.secret_key":        envOrVal("S3_SECRET_KEY", cfg.Backends.S3.SecretKey),
 		"azure.account":        cfg.Backends.Azure.Account,
 		"azure.container":      cfg.Backends.Azure.Container,
 		"azure.prefix":         cfg.Backends.Azure.Prefix,
-		"azure.sas_token":      cfg.Backends.Azure.SASToken,
+		"azure.sas_token":      envOrVal("AZURE_SAS_TOKEN", cfg.Backends.Azure.SASToken),
 		"gcs.bucket":           cfg.Backends.GCS.Bucket,
 		"gcs.prefix":           cfg.Backends.GCS.Prefix,
 		"gcs.credentials_file": cfg.Backends.GCS.CredentialsFile,
@@ -231,6 +231,16 @@ func getBool(m map[string]string, key string, fallback bool) bool {
 		}
 	}
 	return fallback
+}
+
+// envOrVal returns the value of the named environment variable when non-empty,
+// falling back to val otherwise. Use it to let Kubernetes secrets override
+// config-file values for credentials.
+func envOrVal(envKey, val string) string {
+	if e := os.Getenv(envKey); e != "" {
+		return e
+	}
+	return val
 }
 
 func init() {

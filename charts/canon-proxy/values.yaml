@@ -62,7 +62,7 @@ secret:
   smbPassword: ""
   ftpPassword: ""
   s3SecretKey: ""
-  azureAccountKey: ""
+  azureSasToken: ""
   # Path to a GCS service-account JSON file; mount it via extraVolumes if needed.
   gcsServiceAccountJSON: ""
 
