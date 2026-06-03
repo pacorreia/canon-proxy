@@ -65,6 +65,7 @@ func (s *Store) notify() {
 func (s *Store) Add(filename, url string, capturedAt *time.Time, isVideo bool) bool {
 	_, created, err := s.repo.FindOrCreate(filename, url, capturedAt, isVideo)
 	if err != nil {
+		log.Printf("level=error component=store msg=\"Add failed\" file=%q url=%q err=%q", filename, url, err)
 		return false
 	}
 	if created {
