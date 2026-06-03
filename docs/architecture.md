@@ -64,12 +64,12 @@ The store tracks:
 |---|---|
 | `filename` | Unique file name (e.g. `IMG_0042.JPG`) |
 | `url` | `ptpip://<host>:<port>/<handle>` |
-| `handle` | PTP object handle (hex) |
-| `thumb_data` | JPEG thumbnail (blob) |
-| `captured_at` | Capture date/time from EXIF |
+| `status` | `discovered` · `queued` · `uploading` · `done` · `failed` |
+| `retry_count` | Number of upload attempts so far |
+| `last_error` | Last upload/download error message (if any) |
+| `next_retry_at` | Back-off time before the next retry |
+| `captured_at` | Capture date/time from camera (if available) |
 | `is_video` | `true` for MOV/MP4 files |
-| `status` | `pending` · `uploading` · `done` · `error` |
-| `uploaded_at` | Timestamp of successful upload |
 
 ---
 
