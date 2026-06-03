@@ -50,9 +50,9 @@ Canon EOS cameras implement a subset of the PTP/IP spec (CIPA DC-X005). The prox
 
 ## Delta Polling
 
-Every `poll_interval` the poller calls `GetObjectHandles(0xFFFFFFFF)` to retrieve the full handle list from the camera. It compares this list against handles already stored in SQLite. Only **new** handles trigger a `GetObjectInfo` + thumbnail fetch.
+After the first successful scan, the poller switches to delta mode: only handles not yet seen in this process trigger a `GetObjectInfo` call.
 
-This means: even after a restart, previously seen images are not re-downloaded.
+SQLite is used to deduplicate discovered URLs across restarts so previously recorded images are not re-queued for upload.
 
 ---
 
