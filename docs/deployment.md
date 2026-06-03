@@ -10,9 +10,11 @@ icon: lucide/container
 
 The simplest way to run canon-proxy in Docker. Docker's iptables MASQUERADE rewrites the container source IP to the host's LAN IP, so the camera sees a same-subnet connection and accepts the PTP/IP handshake.
 
+!!! important "Persist the database"
+    Set `database.dsn: /data/canon-proxy.db` in your `config.yaml` so the SQLite database is written inside the `/data` volume. Using the default `./canon-proxy.db` path places the file in the container filesystem and the database will be lost when the container is recreated.
+
 ```bash
 docker run --rm \
-  # Ensure database.dsn points at /data/canon-proxy.db to persist state in the /data volume
   -v "$(pwd)/config.yaml:/app/config.yaml:ro" \
   -v canon-proxy-data:/data \
   -p 9090:9090 \

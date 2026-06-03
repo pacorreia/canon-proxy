@@ -1,6 +1,7 @@
 package store
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -93,7 +94,10 @@ func (s *Store) GetByFilename(filename string) *Entry {
 
 // SetStatus updates the status and error message for the image identified by URL.
 func (s *Store) SetStatus(url string, status Status, errMsg string) {
-	_ = s.repo.SetStatus(url, status, errMsg)
+	if err := s.repo.SetStatus(url, status, errMsg); err != nil {
+		log.Printf("level=error component=store msg=\"SetStatus failed\" url=%q err=%q", url, err)
+		return
+	}
 	s.notify()
 }
 

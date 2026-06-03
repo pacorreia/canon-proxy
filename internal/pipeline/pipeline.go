@@ -230,10 +230,10 @@ func (p *Pipeline) handleFailure(img canon.Image, retryCount int, err error) err
 		p.store.SetRetryQueued(img.URL, attempt, time.Now().Add(backoff), err.Error())
 		log.Printf("level=warn component=pipeline msg=\"scheduling retry\" file=%q attempt=%d backoff=%s err=%q",
 			img.Filename, attempt, backoff, err)
-	} else {
-		p.store.SetStatus(img.URL, store.StatusFailed, err.Error())
-		log.Printf("level=error component=pipeline msg=\"max retries exhausted\" file=%q err=%q", img.Filename, err)
+		return nil
 	}
+	p.store.SetStatus(img.URL, store.StatusFailed, err.Error())
+	log.Printf("level=error component=pipeline msg=\"max retries exhausted\" file=%q err=%q", img.Filename, err)
 	return err
 }
 

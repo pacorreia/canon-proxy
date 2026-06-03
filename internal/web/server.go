@@ -529,8 +529,10 @@ func (s *Server) handleDownloadZip(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("level=warn component=web msg=\"zip: skip file\" file=%q err=%q", entry.Filename, err)
 			continue
+		}
 		safeName := strings.NewReplacer("/", "_", "\\", "_").Replace(entry.Filename)
 		fw, err := zw.Create(safeName)
+		if err != nil {
 			rc.Close()
 			log.Printf("level=warn component=web msg=\"zip: create entry\" file=%q err=%q", entry.Filename, err)
 			continue

@@ -7,7 +7,8 @@
 
 database:
   driver: sqlite          # sqlite | postgres | mssql
-  dsn: ./canon-proxy.db   # SQLite file path; for others use a connection string
+  dsn: /data/canon-proxy.db  # SQLite: use /data/... to persist state in Docker/Helm volumes
+  # When running locally (outside a container) you can use ./canon-proxy.db instead.
   # Postgres example: host=localhost user=canon dbname=canon password=secret sslmode=disable
   # MSSQL example: sqlserver://sa:secret@localhost:1433?database=canon
 
