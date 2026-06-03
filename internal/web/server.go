@@ -731,7 +731,8 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case line := <-client.ch:
-			fmt.Fprintf(w, "data: %s\n\n", line)
+			safe := strings.NewReplacer("\n", "\\n", "\r", "\\r").Replace(line)
+			fmt.Fprintf(w, "data: %s\n\n", safe)
 			flusher.Flush()
 		}
 	}
