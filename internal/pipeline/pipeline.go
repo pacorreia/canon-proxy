@@ -163,22 +163,16 @@ func (p *Pipeline) Run(ctx context.Context) error {
 	return nil
 }
 
-func (p *Pipeline) retryScheduler(ctx context.Context) {
-	ticker := time.NewTicker(retrySchedulerTick)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
 		case <-ticker.C:
-			for _, e := range p.store.ListReadyToRetry() {
+			todo := append(p.store.AllFreshQueued(), p.store.ListReadyToRetry()...)
+			for _, e := range todo {
 				p.store.SetStatus(e.URL, store.StatusUploading, "")
 				img := canon.Image{Filename: e.Filename, URL: e.URL}
 				select {
 				case p.pushCh <- img:
-					log.Printf("level=info component=pipeline msg=\"retry enqueued\" file=%q attempt=%d", e.Filename, e.RetryCount)
+					log.Printf("level=info component=pipeline msg=\"enqueued\" file=%q retry_count=%d", e.Filename, e.RetryCount)
 				default:
-					p.store.SetStatus(e.URL, store.StatusQueued, "channel full on retry")
+					p.store.SetStatus(e.URL, store.StatusQueued, "channel full")
 				}
 			}
 		}
