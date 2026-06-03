@@ -812,7 +812,10 @@ func (c *Client) recvData(ctx context.Context, txID uint32) ([]byte, error) {
 			if len(payload) >= 12 {
 				totalLen := binary.LittleEndian.Uint64(payload[4:12])
 				if totalLen > 0 {
-					buf = make([]byte, 0, totalLen)
+					if totalLen > uint64(int(^uint(0)>>1)) {
+						return nil, fmt.Errorf("data payload too large: %d", totalLen)
+					}
+					buf = make([]byte, 0, int(totalLen))
 				}
 			}
 		case ptpipDataPacket:
