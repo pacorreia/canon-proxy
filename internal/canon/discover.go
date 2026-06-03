@@ -123,10 +123,10 @@ func probePTPIP(ctx context.Context, host string, port int) (DiscoveredCamera, b
 	// Send PTP/IP Init Command Request (type 0x01).
 	// Packet: length(4) + type(4) + GUID(16) + friendlyName(UTF-16LE, "canon-proxy\0") + version(4)
 	name := probeEncodeUTF16LE("canon-proxy")
-	pktLen := uint32(4 + 4 + 16 + len(name) + 4)
+	pktLen := 4 + 4 + 16 + len(name) + 4
 	pkt := make([]byte, pktLen)
 	le := func(b []byte, off int, v uint32) { b[off] = byte(v); b[off+1] = byte(v >> 8); b[off+2] = byte(v >> 16); b[off+3] = byte(v >> 24) }
-	le(pkt, 0, pktLen)
+	le(pkt, 0, uint32(pktLen))
 	le(pkt, 4, 0x01) // Init Command Request
 	copy(pkt[8:24], clientGUID[:])
 	copy(pkt[24:], name)
