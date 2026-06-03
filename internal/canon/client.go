@@ -945,9 +945,10 @@ func parsePTPUint32Array(data []byte) []uint32 {
 	if count == 0 || int(count)*4+4 > len(data) {
 		return nil
 	}
-	result := make([]uint32, count)
+	result := make([]uint32, int(count))
 	for i := range result {
 		result[i] = binary.LittleEndian.Uint32(data[4+i*4 : 8+i*4])
+	}
 	}
 	return result
 }
