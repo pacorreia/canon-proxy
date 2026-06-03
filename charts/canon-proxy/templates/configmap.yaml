@@ -38,9 +38,11 @@ data:
       s3:
         region: {{ .Values.backends.s3.region | quote }}
         bucket: {{ .Values.backends.s3.bucket | quote }}
+        prefix: {{ .Values.backends.s3.prefix | quote }}
         access_key: {{ .Values.backends.s3.accessKeyID | quote }}
       azure:
         account: {{ .Values.backends.azure.accountName | quote }}
         container: {{ .Values.backends.azure.container | quote }}
+        prefix: {{ .Values.backends.azure.prefix | quote }}
       gcs:
         bucket: {{ .Values.backends.gcs.bucket | quote }}

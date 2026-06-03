@@ -758,6 +758,9 @@ func (c *Client) sendCmdRequest(opcode uint16, txID uint32, dataPhase bool, para
 // matching txID arrives. Ping packets are answered with Pong.
 func (c *Client) recvResponse(ctx context.Context, txID uint32) ([]uint32, error) {
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		pktType, payload, err := recvPacket(c.cmdConn)
 		if err != nil {
 			return nil, fmt.Errorf("recv response: %w", err)
@@ -796,6 +799,9 @@ func (c *Client) recvData(ctx context.Context, txID uint32) ([]byte, error) {
 	var buf []byte
 
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		pktType, payload, err := recvPacket(c.cmdConn)
 		if err != nil {
 			return nil, fmt.Errorf("recv data: %w", err)

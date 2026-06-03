@@ -46,11 +46,12 @@ backends:
   s3:
     region: ""
     bucket: ""
-    endpoint: ""
+    prefix: ""
     accessKeyID: ""
   azure:
     accountName: ""
     container: ""
+    prefix: ""
   gcs:
     bucket: ""
 
