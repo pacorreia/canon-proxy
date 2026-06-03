@@ -38,10 +38,9 @@ data:
       s3:
         region: {{ .Values.backends.s3.region | quote }}
         bucket: {{ .Values.backends.s3.bucket | quote }}
-        endpoint: {{ .Values.backends.s3.endpoint | quote }}
-        access_key_id: {{ .Values.backends.s3.accessKeyID | quote }}
+        access_key: {{ .Values.backends.s3.accessKeyID | quote }}
       azure:
-        account_name: {{ .Values.backends.azure.accountName | quote }}
+        account: {{ .Values.backends.azure.accountName | quote }}
         container: {{ .Values.backends.azure.container | quote }}
       gcs:
         bucket: {{ .Values.backends.gcs.bucket | quote }}
