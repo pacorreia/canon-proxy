@@ -45,8 +45,6 @@ camera:
 upload:
   workers: 1              # parallel upload workers
   backend: smb            # smb | ftp | s3 | azure | gcs
-  mode: manual            # manual | auto
-  delete_after_upload: false
 ```
 
 | Field | Description |
