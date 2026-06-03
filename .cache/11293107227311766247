@@ -1,0 +1,224 @@
+{
+  "data": {
+    "meta": {
+      "icon": "lucide/settings"
+    },
+    "content": "<h1 id=\"configuration\">Configuration<a class=\"headerlink\" href=\"#configuration\" title=\"Permanent link\">&para;</a></h1>\n<h2 id=\"config-file\">Config file<a class=\"headerlink\" href=\"#config-file\" title=\"Permanent link\">&para;</a></h2>\n<p><code>config.yaml</code> is a <strong>first-run seed</strong>. Values are written to the SQLite database on the initial start. After that the <strong>database is the source of truth</strong> — changes to <code>config.yaml</code> are ignored unless you delete the database.</p>\n<p>All settings are also editable live from the <strong>Settings</strong> page in the web UI.</p>\n<hr />\n<h2 id=\"top-level-sections\">Top-level sections<a class=\"headerlink\" href=\"#top-level-sections\" title=\"Permanent link\">&para;</a></h2>\n<div class=\"language-yaml highlight\"><pre><span></span><code><span id=\"__span-0-1\"><a id=\"__codelineno-0-1\" name=\"__codelineno-0-1\" href=\"#__codelineno-0-1\"></a><span class=\"nt\">database</span><span class=\"p\">:</span>\n</span><span id=\"__span-0-2\"><a id=\"__codelineno-0-2\" name=\"__codelineno-0-2\" href=\"#__codelineno-0-2\"></a><span class=\"w\">  </span><span class=\"nt\">driver</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">sqlite</span><span class=\"w\">          </span><span class=\"c1\"># sqlite | postgres | mssql</span>\n</span><span id=\"__span-0-3\"><a id=\"__codelineno-0-3\" name=\"__codelineno-0-3\" href=\"#__codelineno-0-3\"></a><span class=\"w\">  </span><span class=\"nt\">dsn</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">./canon-proxy.db</span><span class=\"w\">   </span><span class=\"c1\"># file path for sqlite; full DSN for others</span>\n</span><span id=\"__span-0-4\"><a id=\"__codelineno-0-4\" name=\"__codelineno-0-4\" href=\"#__codelineno-0-4\"></a>\n</span><span id=\"__span-0-5\"><a id=\"__codelineno-0-5\" name=\"__codelineno-0-5\" href=\"#__codelineno-0-5\"></a><span class=\"nt\">web</span><span class=\"p\">:</span>\n</span><span id=\"__span-0-6\"><a id=\"__codelineno-0-6\" name=\"__codelineno-0-6\" href=\"#__codelineno-0-6\"></a><span class=\"w\">  </span><span class=\"nt\">listen</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;:9090&quot;</span><span class=\"w\">         </span><span class=\"c1\"># address for the web UI / REST API</span>\n</span></code></pre></div>\n<hr />\n<h2 id=\"camera\">Camera<a class=\"headerlink\" href=\"#camera\" title=\"Permanent link\">&para;</a></h2>\n<div class=\"language-yaml highlight\"><pre><span></span><code><span id=\"__span-1-1\"><a id=\"__codelineno-1-1\" name=\"__codelineno-1-1\" href=\"#__codelineno-1-1\"></a><span class=\"nt\">camera</span><span class=\"p\">:</span>\n</span><span id=\"__span-1-2\"><a id=\"__codelineno-1-2\" name=\"__codelineno-1-2\" href=\"#__codelineno-1-2\"></a><span class=\"w\">  </span><span class=\"nt\">host</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;192.168.2.70&quot;</span><span class=\"w\">   </span><span class=\"c1\"># IP address of the camera</span>\n</span><span id=\"__span-1-3\"><a id=\"__codelineno-1-3\" name=\"__codelineno-1-3\" href=\"#__codelineno-1-3\"></a><span class=\"w\">  </span><span class=\"nt\">port</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">15740</span><span class=\"w\">             </span><span class=\"c1\"># PTP/IP port — do not change for Canon</span>\n</span><span id=\"__span-1-4\"><a id=\"__codelineno-1-4\" name=\"__codelineno-1-4\" href=\"#__codelineno-1-4\"></a><span class=\"w\">  </span><span class=\"nt\">poll_interval</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">5s</span><span class=\"w\">       </span><span class=\"c1\"># how often to check for new images</span>\n</span></code></pre></div>\n<div class=\"admonition warning\">\n<p class=\"admonition-title\">GUID pairing</p>\n<p>The camera enforces GUID-based pairing. The GUID is embedded in the binary at compile time. Once paired, a different client GUID (even one byte different) results in <code>InitFail 0x00000001</code>. Do not modify the GUID unless you intend to re-pair.</p>\n</div>\n<hr />\n<h2 id=\"upload\">Upload<a class=\"headerlink\" href=\"#upload\" title=\"Permanent link\">&para;</a></h2>\n<div class=\"language-yaml highlight\"><pre><span></span><code><span id=\"__span-2-1\"><a id=\"__codelineno-2-1\" name=\"__codelineno-2-1\" href=\"#__codelineno-2-1\"></a><span class=\"nt\">upload</span><span class=\"p\">:</span>\n</span><span id=\"__span-2-2\"><a id=\"__codelineno-2-2\" name=\"__codelineno-2-2\" href=\"#__codelineno-2-2\"></a><span class=\"w\">  </span><span class=\"nt\">workers</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">1</span><span class=\"w\">              </span><span class=\"c1\"># parallel upload workers</span>\n</span><span id=\"__span-2-3\"><a id=\"__codelineno-2-3\" name=\"__codelineno-2-3\" href=\"#__codelineno-2-3\"></a><span class=\"w\">  </span><span class=\"nt\">backend</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">smb</span><span class=\"w\">            </span><span class=\"c1\"># smb | ftp | s3 | azure | gcs</span>\n</span></code></pre></div>\n<table>\n<thead>\n<tr>\n<th>Field</th>\n<th>Description</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>workers</code></td>\n<td>Number of concurrent upload goroutines</td>\n</tr>\n<tr>\n<td><code>backend</code></td>\n<td>Which storage backend to use</td>\n</tr>\n</tbody>\n</table>\n<hr />\n<h2 id=\"backends\">Backends<a class=\"headerlink\" href=\"#backends\" title=\"Permanent link\">&para;</a></h2>\n<h3 id=\"smb\">SMB<a class=\"headerlink\" href=\"#smb\" title=\"Permanent link\">&para;</a></h3>\n<div class=\"language-yaml highlight\"><pre><span></span><code><span id=\"__span-3-1\"><a id=\"__codelineno-3-1\" name=\"__codelineno-3-1\" href=\"#__codelineno-3-1\"></a><span class=\"nt\">backends</span><span class=\"p\">:</span>\n</span><span id=\"__span-3-2\"><a id=\"__codelineno-3-2\" name=\"__codelineno-3-2\" href=\"#__codelineno-3-2\"></a><span class=\"w\">  </span><span class=\"nt\">smb</span><span class=\"p\">:</span>\n</span><span id=\"__span-3-3\"><a id=\"__codelineno-3-3\" name=\"__codelineno-3-3\" href=\"#__codelineno-3-3\"></a><span class=\"w\">    </span><span class=\"nt\">host</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;192.168.2.9&quot;</span>\n</span><span id=\"__span-3-4\"><a id=\"__codelineno-3-4\" name=\"__codelineno-3-4\" href=\"#__codelineno-3-4\"></a><span class=\"w\">    </span><span class=\"nt\">share</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;photos&quot;</span>\n</span><span id=\"__span-3-5\"><a id=\"__codelineno-3-5\" name=\"__codelineno-3-5\" href=\"#__codelineno-3-5\"></a><span class=\"w\">    </span><span class=\"nt\">username</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;user&quot;</span>\n</span><span id=\"__span-3-6\"><a id=\"__codelineno-3-6\" name=\"__codelineno-3-6\" href=\"#__codelineno-3-6\"></a><span class=\"w\">    </span><span class=\"nt\">password</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;secret&quot;</span>\n</span><span id=\"__span-3-7\"><a id=\"__codelineno-3-7\" name=\"__codelineno-3-7\" href=\"#__codelineno-3-7\"></a><span class=\"w\">    </span><span class=\"nt\">path</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;/uploads&quot;</span>\n</span></code></pre></div>\n<h3 id=\"ftp\">FTP<a class=\"headerlink\" href=\"#ftp\" title=\"Permanent link\">&para;</a></h3>\n<div class=\"language-yaml highlight\"><pre><span></span><code><span id=\"__span-4-1\"><a id=\"__codelineno-4-1\" name=\"__codelineno-4-1\" href=\"#__codelineno-4-1\"></a><span class=\"nt\">backends</span><span class=\"p\">:</span>\n</span><span id=\"__span-4-2\"><a id=\"__codelineno-4-2\" name=\"__codelineno-4-2\" href=\"#__codelineno-4-2\"></a><span class=\"w\">  </span><span class=\"nt\">ftp</span><span class=\"p\">:</span>\n</span><span id=\"__span-4-3\"><a id=\"__codelineno-4-3\" name=\"__codelineno-4-3\" href=\"#__codelineno-4-3\"></a><span class=\"w\">    </span><span class=\"nt\">host</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;ftp.example.com&quot;</span>\n</span><span id=\"__span-4-4\"><a id=\"__codelineno-4-4\" name=\"__codelineno-4-4\" href=\"#__codelineno-4-4\"></a><span class=\"w\">    </span><span class=\"nt\">port</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">21</span>\n</span><span id=\"__span-4-5\"><a id=\"__codelineno-4-5\" name=\"__codelineno-4-5\" href=\"#__codelineno-4-5\"></a><span class=\"w\">    </span><span class=\"nt\">username</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;user&quot;</span>\n</span><span id=\"__span-4-6\"><a id=\"__codelineno-4-6\" name=\"__codelineno-4-6\" href=\"#__codelineno-4-6\"></a><span class=\"w\">    </span><span class=\"nt\">password</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;secret&quot;</span>\n</span><span id=\"__span-4-7\"><a id=\"__codelineno-4-7\" name=\"__codelineno-4-7\" href=\"#__codelineno-4-7\"></a><span class=\"w\">    </span><span class=\"nt\">tls</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">false</span>\n</span><span id=\"__span-4-8\"><a id=\"__codelineno-4-8\" name=\"__codelineno-4-8\" href=\"#__codelineno-4-8\"></a><span class=\"w\">    </span><span class=\"nt\">path</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;/uploads&quot;</span>\n</span></code></pre></div>\n<h3 id=\"aws-s3\">AWS S3<a class=\"headerlink\" href=\"#aws-s3\" title=\"Permanent link\">&para;</a></h3>\n<div class=\"language-yaml highlight\"><pre><span></span><code><span id=\"__span-5-1\"><a id=\"__codelineno-5-1\" name=\"__codelineno-5-1\" href=\"#__codelineno-5-1\"></a><span class=\"nt\">backends</span><span class=\"p\">:</span>\n</span><span id=\"__span-5-2\"><a id=\"__codelineno-5-2\" name=\"__codelineno-5-2\" href=\"#__codelineno-5-2\"></a><span class=\"w\">  </span><span class=\"nt\">s3</span><span class=\"p\">:</span>\n</span><span id=\"__span-5-3\"><a id=\"__codelineno-5-3\" name=\"__codelineno-5-3\" href=\"#__codelineno-5-3\"></a><span class=\"w\">    </span><span class=\"nt\">bucket</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;my-bucket&quot;</span>\n</span><span id=\"__span-5-4\"><a id=\"__codelineno-5-4\" name=\"__codelineno-5-4\" href=\"#__codelineno-5-4\"></a><span class=\"w\">    </span><span class=\"nt\">region</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;eu-west-1&quot;</span>\n</span><span id=\"__span-5-5\"><a id=\"__codelineno-5-5\" name=\"__codelineno-5-5\" href=\"#__codelineno-5-5\"></a><span class=\"w\">    </span><span class=\"nt\">prefix</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;camera/&quot;</span>\n</span><span id=\"__span-5-6\"><a id=\"__codelineno-5-6\" name=\"__codelineno-5-6\" href=\"#__codelineno-5-6\"></a><span class=\"w\">    </span><span class=\"nt\">access_key</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;AKIA...&quot;</span>\n</span><span id=\"__span-5-7\"><a id=\"__codelineno-5-7\" name=\"__codelineno-5-7\" href=\"#__codelineno-5-7\"></a><span class=\"w\">    </span><span class=\"nt\">secret_key</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;...&quot;</span>\n</span></code></pre></div>\n<h3 id=\"azure-blob-storage\">Azure Blob Storage<a class=\"headerlink\" href=\"#azure-blob-storage\" title=\"Permanent link\">&para;</a></h3>\n<div class=\"language-yaml highlight\"><pre><span></span><code><span id=\"__span-6-1\"><a id=\"__codelineno-6-1\" name=\"__codelineno-6-1\" href=\"#__codelineno-6-1\"></a><span class=\"nt\">backends</span><span class=\"p\">:</span>\n</span><span id=\"__span-6-2\"><a id=\"__codelineno-6-2\" name=\"__codelineno-6-2\" href=\"#__codelineno-6-2\"></a><span class=\"w\">  </span><span class=\"nt\">azure</span><span class=\"p\">:</span>\n</span><span id=\"__span-6-3\"><a id=\"__codelineno-6-3\" name=\"__codelineno-6-3\" href=\"#__codelineno-6-3\"></a><span class=\"w\">    </span><span class=\"nt\">account</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;mystorageaccount&quot;</span>\n</span><span id=\"__span-6-4\"><a id=\"__codelineno-6-4\" name=\"__codelineno-6-4\" href=\"#__codelineno-6-4\"></a><span class=\"w\">    </span><span class=\"nt\">container</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;photos&quot;</span>\n</span><span id=\"__span-6-5\"><a id=\"__codelineno-6-5\" name=\"__codelineno-6-5\" href=\"#__codelineno-6-5\"></a><span class=\"w\">    </span><span class=\"nt\">prefix</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;camera/&quot;</span>\n</span><span id=\"__span-6-6\"><a id=\"__codelineno-6-6\" name=\"__codelineno-6-6\" href=\"#__codelineno-6-6\"></a><span class=\"w\">    </span><span class=\"nt\">sas_token</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;...&quot;</span>\n</span></code></pre></div>\n<h3 id=\"google-cloud-storage\">Google Cloud Storage<a class=\"headerlink\" href=\"#google-cloud-storage\" title=\"Permanent link\">&para;</a></h3>\n<div class=\"language-yaml highlight\"><pre><span></span><code><span id=\"__span-7-1\"><a id=\"__codelineno-7-1\" name=\"__codelineno-7-1\" href=\"#__codelineno-7-1\"></a><span class=\"nt\">backends</span><span class=\"p\">:</span>\n</span><span id=\"__span-7-2\"><a id=\"__codelineno-7-2\" name=\"__codelineno-7-2\" href=\"#__codelineno-7-2\"></a><span class=\"w\">  </span><span class=\"nt\">gcs</span><span class=\"p\">:</span>\n</span><span id=\"__span-7-3\"><a id=\"__codelineno-7-3\" name=\"__codelineno-7-3\" href=\"#__codelineno-7-3\"></a><span class=\"w\">    </span><span class=\"nt\">bucket</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;my-gcs-bucket&quot;</span>\n</span><span id=\"__span-7-4\"><a id=\"__codelineno-7-4\" name=\"__codelineno-7-4\" href=\"#__codelineno-7-4\"></a><span class=\"w\">    </span><span class=\"nt\">credentials_file</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;/secrets/gcs-key.json&quot;</span>\n</span><span id=\"__span-7-5\"><a id=\"__codelineno-7-5\" name=\"__codelineno-7-5\" href=\"#__codelineno-7-5\"></a><span class=\"w\">    </span><span class=\"nt\">prefix</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;camera/&quot;</span>\n</span></code></pre></div>\n<hr />\n<h2 id=\"database\">Database<a class=\"headerlink\" href=\"#database\" title=\"Permanent link\">&para;</a></h2>\n<div class=\"language-yaml highlight\"><pre><span></span><code><span id=\"__span-8-1\"><a id=\"__codelineno-8-1\" name=\"__codelineno-8-1\" href=\"#__codelineno-8-1\"></a><span class=\"nt\">database</span><span class=\"p\">:</span>\n</span><span id=\"__span-8-2\"><a id=\"__codelineno-8-2\" name=\"__codelineno-8-2\" href=\"#__codelineno-8-2\"></a><span class=\"w\">  </span><span class=\"nt\">driver</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">sqlite</span><span class=\"w\">                   </span><span class=\"c1\"># sqlite (default) | postgres | mssql</span>\n</span><span id=\"__span-8-3\"><a id=\"__codelineno-8-3\" name=\"__codelineno-8-3\" href=\"#__codelineno-8-3\"></a><span class=\"w\">  </span><span class=\"nt\">dsn</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">./canon-proxy.db</span><span class=\"w\">            </span><span class=\"c1\"># SQLite: relative path</span>\n</span><span id=\"__span-8-4\"><a id=\"__codelineno-8-4\" name=\"__codelineno-8-4\" href=\"#__codelineno-8-4\"></a><span class=\"w\">  </span><span class=\"c1\"># dsn: &quot;host=db user=cp password=secret dbname=canon sslmode=disable&quot;</span>\n</span></code></pre></div>\n<div class=\"admonition note\">\n<p class=\"admonition-title\">Note</p>\n<p>Changing the driver after first run requires migrating data. For most home-lab deployments SQLite is sufficient.</p>\n</div>\n<hr />\n<h2 id=\"environment-variable-overrides\">Environment variable overrides<a class=\"headerlink\" href=\"#environment-variable-overrides\" title=\"Permanent link\">&para;</a></h2>\n<p>Environment variable overrides are not currently implemented.</p>\n<p>Use the Settings page (persisted in SQLite) or provide values in <code>config.yaml</code> on first run.</p>",
+    "search": [
+      {
+        "location": null,
+        "level": 1,
+        "title": "Configuration",
+        "text": "",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "config-file",
+        "level": 2,
+        "title": "Config file",
+        "text": "<p><code>config.yaml</code> is a first-run seed. Values are written to the SQLite database on the initial start. After that the database is the source of truth — changes to <code>config.yaml</code> are ignored unless you delete the database.</p> <p>All settings are also editable live from the Settings page in the web UI.</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "top-level-sections",
+        "level": 2,
+        "title": "Top-level sections",
+        "text": "<pre><code>database:\n  driver: sqlite          # sqlite | postgres | mssql\n  dsn: ./canon-proxy.db   # file path for sqlite; full DSN for others\n\nweb:\n  listen: \":9090\"         # address for the web UI / REST API\n</code></pre>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "camera",
+        "level": 2,
+        "title": "Camera",
+        "text": "<pre><code>camera:\n  host: \"192.168.2.70\"   # IP address of the camera\n  port: 15740             # PTP/IP port — do not change for Canon\n  poll_interval: 5s       # how often to check for new images\n</code></pre> <p>GUID pairing</p> <p>The camera enforces GUID-based pairing. The GUID is embedded in the binary at compile time. Once paired, a different client GUID (even one byte different) results in <code>InitFail 0x00000001</code>. Do not modify the GUID unless you intend to re-pair.</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "upload",
+        "level": 2,
+        "title": "Upload",
+        "text": "<pre><code>upload:\n  workers: 1              # parallel upload workers\n  backend: smb            # smb | ftp | s3 | azure | gcs\n</code></pre> Field Description <code>workers</code> Number of concurrent upload goroutines <code>backend</code> Which storage backend to use",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "backends",
+        "level": 2,
+        "title": "Backends",
+        "text": "",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "smb",
+        "level": 3,
+        "title": "SMB",
+        "text": "<pre><code>backends:\n  smb:\n    host: \"192.168.2.9\"\n    share: \"photos\"\n    username: \"user\"\n    password: \"secret\"\n    path: \"/uploads\"\n</code></pre>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "ftp",
+        "level": 3,
+        "title": "FTP",
+        "text": "<pre><code>backends:\n  ftp:\n    host: \"ftp.example.com\"\n    port: 21\n    username: \"user\"\n    password: \"secret\"\n    tls: false\n    path: \"/uploads\"\n</code></pre>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "aws-s3",
+        "level": 3,
+        "title": "AWS S3",
+        "text": "<pre><code>backends:\n  s3:\n    bucket: \"my-bucket\"\n    region: \"eu-west-1\"\n    prefix: \"camera/\"\n    access_key: \"AKIA...\"\n    secret_key: \"...\"\n</code></pre>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "azure-blob-storage",
+        "level": 3,
+        "title": "Azure Blob Storage",
+        "text": "<pre><code>backends:\n  azure:\n    account: \"mystorageaccount\"\n    container: \"photos\"\n    prefix: \"camera/\"\n    sas_token: \"...\"\n</code></pre>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "google-cloud-storage",
+        "level": 3,
+        "title": "Google Cloud Storage",
+        "text": "<pre><code>backends:\n  gcs:\n    bucket: \"my-gcs-bucket\"\n    credentials_file: \"/secrets/gcs-key.json\"\n    prefix: \"camera/\"\n</code></pre>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "database",
+        "level": 2,
+        "title": "Database",
+        "text": "<pre><code>database:\n  driver: sqlite                   # sqlite (default) | postgres | mssql\n  dsn: ./canon-proxy.db            # SQLite: relative path\n  # dsn: \"host=db user=cp password=secret dbname=canon sslmode=disable\"\n</code></pre> <p>Note</p> <p>Changing the driver after first run requires migrating data. For most home-lab deployments SQLite is sufficient.</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "environment-variable-overrides",
+        "level": 2,
+        "title": "Environment variable overrides",
+        "text": "<p>Environment variable overrides are not currently implemented.</p> <p>Use the Settings page (persisted in SQLite) or provide values in <code>config.yaml</code> on first run.</p>",
+        "path": [],
+        "tags": []
+      }
+    ],
+    "title": "Configuration",
+    "toc": [
+      {
+        "title": "Configuration",
+        "content": "Configuration",
+        "id": "configuration",
+        "url": "#configuration",
+        "children": [
+          {
+            "title": "Config file",
+            "content": "Config file",
+            "id": "config-file",
+            "url": "#config-file",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Top-level sections",
+            "content": "Top-level sections",
+            "id": "top-level-sections",
+            "url": "#top-level-sections",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Camera",
+            "content": "Camera",
+            "id": "camera",
+            "url": "#camera",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Upload",
+            "content": "Upload",
+            "id": "upload",
+            "url": "#upload",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Backends",
+            "content": "Backends",
+            "id": "backends",
+            "url": "#backends",
+            "children": [
+              {
+                "title": "SMB",
+                "content": "SMB",
+                "id": "smb",
+                "url": "#smb",
+                "children": [],
+                "level": 3
+              },
+              {
+                "title": "FTP",
+                "content": "FTP",
+                "id": "ftp",
+                "url": "#ftp",
+                "children": [],
+                "level": 3
+              },
+              {
+                "title": "AWS S3",
+                "content": "AWS S3",
+                "id": "aws-s3",
+                "url": "#aws-s3",
+                "children": [],
+                "level": 3
+              },
+              {
+                "title": "Azure Blob Storage",
+                "content": "Azure Blob Storage",
+                "id": "azure-blob-storage",
+                "url": "#azure-blob-storage",
+                "children": [],
+                "level": 3
+              },
+              {
+                "title": "Google Cloud Storage",
+                "content": "Google Cloud Storage",
+                "id": "google-cloud-storage",
+                "url": "#google-cloud-storage",
+                "children": [],
+                "level": 3
+              }
+            ],
+            "level": 2
+          },
+          {
+            "title": "Database",
+            "content": "Database",
+            "id": "database",
+            "url": "#database",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Environment variable overrides",
+            "content": "Environment variable overrides",
+            "id": "environment-variable-overrides",
+            "url": "#environment-variable-overrides",
+            "children": [],
+            "level": 2
+          }
+        ],
+        "level": 1
+      }
+    ]
+  },
+  "hash": 10675355003180312510
+}

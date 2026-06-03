@@ -1,0 +1,79 @@
+{
+  "data": {
+    "meta": {
+      "icon": "lucide/camera"
+    },
+    "content": "<h1 id=\"canon-proxy\">canon-proxy<a class=\"headerlink\" href=\"#canon-proxy\" title=\"Permanent link\">&para;</a></h1>\n<p><strong>canon-proxy</strong> is a lightweight Go service that connects to a Canon EOS camera over WiFi using the PTP/IP protocol, continuously discovers new images, and uploads them to configurable storage backends.</p>\n<hr />\n<h2 id=\"key-features\">Key Features<a class=\"headerlink\" href=\"#key-features\" title=\"Permanent link\">&para;</a></h2>\n<table>\n<thead>\n<tr>\n<th>Feature</th>\n<th>Details</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><strong>Protocol</strong></td>\n<td>PTP/IP over TCP :15740 — same pairing as Canon's own apps</td>\n</tr>\n<tr>\n<td><strong>Discovery</strong></td>\n<td>Delta polling — only new images are processed each cycle</td>\n</tr>\n<tr>\n<td><strong>Web UI</strong></td>\n<td>Thumbnail browser, manual push controls, settings editor</td>\n</tr>\n<tr>\n<td><strong>Upload Modes</strong></td>\n<td><code>auto</code> (hands-free) · <code>manual</code> (review before upload)</td>\n</tr>\n<tr>\n<td><strong>Backends</strong></td>\n<td>SMB · FTP · AWS S3 · Azure Blob · Google Cloud Storage</td>\n</tr>\n<tr>\n<td><strong>Video</strong></td>\n<td>MOV files detected; displayed with a ▶ badge in the UI</td>\n</tr>\n<tr>\n<td><strong>Resilience</strong></td>\n<td>Exponential back-off reconnect, delete-after-upload option</td>\n</tr>\n<tr>\n<td><strong>Container</strong></td>\n<td>Multi-arch image (<code>linux/amd64</code>, <code>linux/arm64</code>) on GHCR</td>\n</tr>\n<tr>\n<td><strong>Helm chart</strong></td>\n<td>Published to OCI (<code>ghcr.io/pacorreia/charts/canon-proxy</code>)</td>\n</tr>\n</tbody>\n</table>\n<hr />\n<h2 id=\"quick-start\">Quick Start<a class=\"headerlink\" href=\"#quick-start\" title=\"Permanent link\">&para;</a></h2>\n<div class=\"language-bash highlight\"><pre><span></span><code><span id=\"__span-0-1\"><a id=\"__codelineno-0-1\" name=\"__codelineno-0-1\" href=\"#__codelineno-0-1\"></a><span class=\"c1\"># 1. Copy the example config</span>\n</span><span id=\"__span-0-2\"><a id=\"__codelineno-0-2\" name=\"__codelineno-0-2\" href=\"#__codelineno-0-2\"></a>cp<span class=\"w\"> </span>config.example.yaml<span class=\"w\"> </span>config.yaml\n</span><span id=\"__span-0-3\"><a id=\"__codelineno-0-3\" name=\"__codelineno-0-3\" href=\"#__codelineno-0-3\"></a><span class=\"c1\"># Edit camera.host to your camera&#39;s IP</span>\n</span><span id=\"__span-0-4\"><a id=\"__codelineno-0-4\" name=\"__codelineno-0-4\" href=\"#__codelineno-0-4\"></a>\n</span><span id=\"__span-0-5\"><a id=\"__codelineno-0-5\" name=\"__codelineno-0-5\" href=\"#__codelineno-0-5\"></a><span class=\"c1\"># 2. Run</span>\n</span><span id=\"__span-0-6\"><a id=\"__codelineno-0-6\" name=\"__codelineno-0-6\" href=\"#__codelineno-0-6\"></a>go<span class=\"w\"> </span>run<span class=\"w\"> </span>./cmd/canon-proxy<span class=\"w\"> </span>--config<span class=\"w\"> </span>config.yaml\n</span><span id=\"__span-0-7\"><a id=\"__codelineno-0-7\" name=\"__codelineno-0-7\" href=\"#__codelineno-0-7\"></a>\n</span><span id=\"__span-0-8\"><a id=\"__codelineno-0-8\" name=\"__codelineno-0-8\" href=\"#__codelineno-0-8\"></a><span class=\"c1\"># 3. Open the UI</span>\n</span><span id=\"__span-0-9\"><a id=\"__codelineno-0-9\" name=\"__codelineno-0-9\" href=\"#__codelineno-0-9\"></a>open<span class=\"w\"> </span>http://localhost:9090\n</span></code></pre></div>\n<p>See <a href=\"getting-started/\">Getting Started</a> for full setup instructions.</p>\n<hr />\n<h2 id=\"project-links\">Project Links<a class=\"headerlink\" href=\"#project-links\" title=\"Permanent link\">&para;</a></h2>\n<ul>\n<li><strong>Source</strong>: <a href=\"https://github.com/pacorreia/canon-proxy\">github.com/pacorreia/canon-proxy</a></li>\n<li><strong>Container registry</strong>: <code>ghcr.io/pacorreia/canon-proxy</code></li>\n<li><strong>Helm chart</strong>: <code>oci://ghcr.io/pacorreia/charts/canon-proxy</code></li>\n</ul>",
+    "search": [
+      {
+        "location": null,
+        "level": 1,
+        "title": "canon-proxy",
+        "text": "<p>canon-proxy is a lightweight Go service that connects to a Canon EOS camera over WiFi using the PTP/IP protocol, continuously discovers new images, and uploads them to configurable storage backends.</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "key-features",
+        "level": 2,
+        "title": "Key Features",
+        "text": "Feature Details Protocol PTP/IP over TCP :15740 — same pairing as Canon's own apps Discovery Delta polling — only new images are processed each cycle Web UI Thumbnail browser, manual push controls, settings editor Upload Modes <code>auto</code> (hands-free) · <code>manual</code> (review before upload) Backends SMB · FTP · AWS S3 · Azure Blob · Google Cloud Storage Video MOV files detected; displayed with a ▶ badge in the UI Resilience Exponential back-off reconnect, delete-after-upload option Container Multi-arch image (<code>linux/amd64</code>, <code>linux/arm64</code>) on GHCR Helm chart Published to OCI (<code>ghcr.io/pacorreia/charts/canon-proxy</code>)",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "quick-start",
+        "level": 2,
+        "title": "Quick Start",
+        "text": "<pre><code># 1. Copy the example config\ncp config.example.yaml config.yaml\n# Edit camera.host to your camera's IP\n\n# 2. Run\ngo run ./cmd/canon-proxy --config config.yaml\n\n# 3. Open the UI\nopen http://localhost:9090\n</code></pre> <p>See Getting Started for full setup instructions.</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "project-links",
+        "level": 2,
+        "title": "Project Links",
+        "text": "<ul> <li>Source: github.com/pacorreia/canon-proxy</li> <li>Container registry: <code>ghcr.io/pacorreia/canon-proxy</code></li> <li>Helm chart: <code>oci://ghcr.io/pacorreia/charts/canon-proxy</code></li> </ul>",
+        "path": [],
+        "tags": []
+      }
+    ],
+    "title": "canon-proxy",
+    "toc": [
+      {
+        "title": "canon-proxy",
+        "content": "canon-proxy",
+        "id": "canon-proxy",
+        "url": "#canon-proxy",
+        "children": [
+          {
+            "title": "Key Features",
+            "content": "Key Features",
+            "id": "key-features",
+            "url": "#key-features",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Quick Start",
+            "content": "Quick Start",
+            "id": "quick-start",
+            "url": "#quick-start",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Project Links",
+            "content": "Project Links",
+            "id": "project-links",
+            "url": "#project-links",
+            "children": [],
+            "level": 2
+          }
+        ],
+        "level": 1
+      }
+    ]
+  },
+  "hash": 12415367001504599524
+}

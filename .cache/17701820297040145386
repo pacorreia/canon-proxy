@@ -1,0 +1,127 @@
+{
+  "data": {
+    "meta": {
+      "icon": "lucide/layers"
+    },
+    "content": "<h1 id=\"architecture\">Architecture<a class=\"headerlink\" href=\"#architecture\" title=\"Permanent link\">&para;</a></h1>\n<h2 id=\"overview\">Overview<a class=\"headerlink\" href=\"#overview\" title=\"Permanent link\">&para;</a></h2>\n<p>canon-proxy is a single stateless binary with an embedded web server. It bridges the camera's PTP/IP socket to your chosen storage backend, with SQLite tracking seen images to guarantee each file is uploaded exactly once.</p>\n<pre class=\"mermaid\"><code>flowchart TD\n    Camera[\"Canon EOS\\nPTP/IP :15740\"]\n\n    subgraph canon-proxy\n        Client[\"PTP/IP Client\\n(GUID pairing)\"]\n        Poller[\"Delta Poller\\n(GetObjectHandles)\"]\n        Store[\"Image Store\\n(SQLite)\"]\n        Workers[\"Worker Pool\\ndownload + upload\"]\n        WebUI[\"Web UI / REST API\\n:9090\"]\n    end\n\n    Backends[\"Storage Backends\\nSMB · FTP · S3 · Azure · GCS\"]\n\n    Camera &lt;--&gt;|\"TCP\\nPTP/IP\"| Client\n    Client --&gt; Poller\n    Poller --&gt;|\"new handles\"| Store\n    Store &lt;--&gt;|\"pending queue\"| Workers\n    Store &lt;--&gt; WebUI\n    WebUI --&gt;|\"push selected\"| Workers\n    Workers --&gt; Backends</code></pre>\n<hr />\n<h2 id=\"ptpip-handshake\">PTP/IP Handshake<a class=\"headerlink\" href=\"#ptpip-handshake\" title=\"Permanent link\">&para;</a></h2>\n<p>Canon EOS cameras implement a subset of the PTP/IP spec (CIPA DC-X005). The proxy acts as an <strong>Initiator</strong>:</p>\n<ol>\n<li>TCP connect to <code>:15740</code>  </li>\n<li>Send <code>InitCommandRequest</code> with a 16-byte <strong>GUID</strong> and UTF-16LE client name  </li>\n<li>Camera replies with <code>InitCommandAck</code> (connection number) or <code>InitFail</code> (reason code)  </li>\n<li>A second TCP connection is established for the <strong>event channel</strong>  </li>\n<li>All subsequent PTP operations (GetObjectHandles, GetObjectInfo, GetObject, GetThumb) flow over the command connection</li>\n</ol>\n<div class=\"admonition info\">\n<p class=\"admonition-title\">GUID pairing is strict</p>\n<p>The camera enforces pairing by GUID. A single-byte change in the GUID causes <code>InitFail 0x00000001</code>. The GUID is fixed at compile time in <code>internal/canon/client.go</code>.</p>\n</div>\n<hr />\n<h2 id=\"delta-polling\">Delta Polling<a class=\"headerlink\" href=\"#delta-polling\" title=\"Permanent link\">&para;</a></h2>\n<p>After the first successful scan, the poller switches to delta mode: only handles not yet seen in this process trigger a <code>GetObjectInfo</code> call.</p>\n<p>SQLite is used to deduplicate discovered URLs across restarts so previously recorded images are not re-queued for upload.</p>\n<hr />\n<h2 id=\"image-store-sqlite\">Image Store (SQLite)<a class=\"headerlink\" href=\"#image-store-sqlite\" title=\"Permanent link\">&para;</a></h2>\n<p>The store tracks:</p>\n<table>\n<thead>\n<tr>\n<th>Column</th>\n<th>Description</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>filename</code></td>\n<td>Unique file name (e.g. <code>IMG_0042.JPG</code>)</td>\n</tr>\n<tr>\n<td><code>url</code></td>\n<td><code>ptpip://&lt;host&gt;:&lt;port&gt;/&lt;handle&gt;</code></td>\n</tr>\n<tr>\n<td><code>status</code></td>\n<td><code>discovered</code> · <code>queued</code> · <code>uploading</code> · <code>done</code> · <code>failed</code></td>\n</tr>\n<tr>\n<td><code>retry_count</code></td>\n<td>Number of upload attempts so far</td>\n</tr>\n<tr>\n<td><code>last_error</code></td>\n<td>Last upload/download error message (if any)</td>\n</tr>\n<tr>\n<td><code>next_retry_at</code></td>\n<td>Back-off time before the next retry</td>\n</tr>\n<tr>\n<td><code>captured_at</code></td>\n<td>Capture date/time from camera (if available)</td>\n</tr>\n<tr>\n<td><code>is_video</code></td>\n<td><code>true</code> for MOV/MP4 files</td>\n</tr>\n</tbody>\n</table>\n<hr />\n<h2 id=\"worker-pool\">Worker Pool<a class=\"headerlink\" href=\"#worker-pool\" title=\"Permanent link\">&para;</a></h2>\n<p>Upload workers are goroutines that pick <code>pending</code> records from the store, download the full image from the camera, and stream it to the configured backend. Concurrency is controlled by <code>upload.workers</code>.</p>\n<div class=\"language-text highlight\"><pre><span></span><code><span id=\"__span-0-1\"><a id=\"__codelineno-0-1\" name=\"__codelineno-0-1\" href=\"#__codelineno-0-1\"></a>pending → [worker] → download from camera → upload to backend → done\n</span><span id=\"__span-0-2\"><a id=\"__codelineno-0-2\" name=\"__codelineno-0-2\" href=\"#__codelineno-0-2\"></a>                                         └→ error (retried on next poll)\n</span></code></pre></div>\n<hr />\n<h2 id=\"web-ui\">Web UI<a class=\"headerlink\" href=\"#web-ui\" title=\"Permanent link\">&para;</a></h2>\n<p>A single-page application served from an embedded <code>//go:embed static</code> filesystem. Features:</p>\n<ul>\n<li><strong>Grid view</strong> — thumbnails with video badge overlay  </li>\n<li><strong>By Date view</strong> — images grouped by capture date  </li>\n<li><strong>Timeline view</strong> — chronological list with status  </li>\n<li><strong>Settings</strong> — live-edit all configuration without restart  </li>\n<li><strong>Manual push</strong> — select images and push to backend on demand</li>\n</ul>",
+    "search": [
+      {
+        "location": null,
+        "level": 1,
+        "title": "Architecture",
+        "text": "",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "overview",
+        "level": 2,
+        "title": "Overview",
+        "text": "<p>canon-proxy is a single stateless binary with an embedded web server. It bridges the camera's PTP/IP socket to your chosen storage backend, with SQLite tracking seen images to guarantee each file is uploaded exactly once.</p> <pre><code>flowchart TD\n    Camera[\"Canon EOS\\nPTP/IP :15740\"]\n\n    subgraph canon-proxy\n        Client[\"PTP/IP Client\\n(GUID pairing)\"]\n        Poller[\"Delta Poller\\n(GetObjectHandles)\"]\n        Store[\"Image Store\\n(SQLite)\"]\n        Workers[\"Worker Pool\\ndownload + upload\"]\n        WebUI[\"Web UI / REST API\\n:9090\"]\n    end\n\n    Backends[\"Storage Backends\\nSMB · FTP · S3 · Azure · GCS\"]\n\n    Camera &lt;--&gt;|\"TCP\\nPTP/IP\"| Client\n    Client --&gt; Poller\n    Poller --&gt;|\"new handles\"| Store\n    Store &lt;--&gt;|\"pending queue\"| Workers\n    Store &lt;--&gt; WebUI\n    WebUI --&gt;|\"push selected\"| Workers\n    Workers --&gt; Backends</code></pre>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "ptpip-handshake",
+        "level": 2,
+        "title": "PTP/IP Handshake",
+        "text": "<p>Canon EOS cameras implement a subset of the PTP/IP spec (CIPA DC-X005). The proxy acts as an Initiator:</p> <ol> <li>TCP connect to <code>:15740</code> </li> <li>Send <code>InitCommandRequest</code> with a 16-byte GUID and UTF-16LE client name  </li> <li>Camera replies with <code>InitCommandAck</code> (connection number) or <code>InitFail</code> (reason code)  </li> <li>A second TCP connection is established for the event channel </li> <li>All subsequent PTP operations (GetObjectHandles, GetObjectInfo, GetObject, GetThumb) flow over the command connection</li> </ol> <p>GUID pairing is strict</p> <p>The camera enforces pairing by GUID. A single-byte change in the GUID causes <code>InitFail 0x00000001</code>. The GUID is fixed at compile time in <code>internal/canon/client.go</code>.</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "delta-polling",
+        "level": 2,
+        "title": "Delta Polling",
+        "text": "<p>After the first successful scan, the poller switches to delta mode: only handles not yet seen in this process trigger a <code>GetObjectInfo</code> call.</p> <p>SQLite is used to deduplicate discovered URLs across restarts so previously recorded images are not re-queued for upload.</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "image-store-sqlite",
+        "level": 2,
+        "title": "Image Store (SQLite)",
+        "text": "<p>The store tracks:</p> Column Description <code>filename</code> Unique file name (e.g. <code>IMG_0042.JPG</code>) <code>url</code> <code>ptpip://&lt;host&gt;:&lt;port&gt;/&lt;handle&gt;</code> <code>status</code> <code>discovered</code> · <code>queued</code> · <code>uploading</code> · <code>done</code> · <code>failed</code> <code>retry_count</code> Number of upload attempts so far <code>last_error</code> Last upload/download error message (if any) <code>next_retry_at</code> Back-off time before the next retry <code>captured_at</code> Capture date/time from camera (if available) <code>is_video</code> <code>true</code> for MOV/MP4 files",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "worker-pool",
+        "level": 2,
+        "title": "Worker Pool",
+        "text": "<p>Upload workers are goroutines that pick <code>pending</code> records from the store, download the full image from the camera, and stream it to the configured backend. Concurrency is controlled by <code>upload.workers</code>.</p> <pre><code>pending → [worker] → download from camera → upload to backend → done\n                                         └→ error (retried on next poll)\n</code></pre>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "web-ui",
+        "level": 2,
+        "title": "Web UI",
+        "text": "<p>A single-page application served from an embedded <code>//go:embed static</code> filesystem. Features:</p> <ul> <li>Grid view — thumbnails with video badge overlay  </li> <li>By Date view — images grouped by capture date  </li> <li>Timeline view — chronological list with status  </li> <li>Settings — live-edit all configuration without restart  </li> <li>Manual push — select images and push to backend on demand</li> </ul>",
+        "path": [],
+        "tags": []
+      }
+    ],
+    "title": "Architecture",
+    "toc": [
+      {
+        "title": "Architecture",
+        "content": "Architecture",
+        "id": "architecture",
+        "url": "#architecture",
+        "children": [
+          {
+            "title": "Overview",
+            "content": "Overview",
+            "id": "overview",
+            "url": "#overview",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "PTP/IP Handshake",
+            "content": "PTP/IP Handshake",
+            "id": "ptpip-handshake",
+            "url": "#ptpip-handshake",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Delta Polling",
+            "content": "Delta Polling",
+            "id": "delta-polling",
+            "url": "#delta-polling",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Image Store (SQLite)",
+            "content": "Image Store (SQLite)",
+            "id": "image-store-sqlite",
+            "url": "#image-store-sqlite",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Worker Pool",
+            "content": "Worker Pool",
+            "id": "worker-pool",
+            "url": "#worker-pool",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Web UI",
+            "content": "Web UI",
+            "id": "web-ui",
+            "url": "#web-ui",
+            "children": [],
+            "level": 2
+          }
+        ],
+        "level": 1
+      }
+    ]
+  },
+  "hash": 15142782984408562106
+}

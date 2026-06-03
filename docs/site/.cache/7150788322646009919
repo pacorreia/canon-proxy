@@ -1,0 +1,159 @@
+{
+  "data": {
+    "meta": {
+      "icon": "lucide/rocket"
+    },
+    "content": "<h1 id=\"getting-started\">Getting Started<a class=\"headerlink\" href=\"#getting-started\" title=\"Permanent link\">&para;</a></h1>\n<h2 id=\"prerequisites\">Prerequisites<a class=\"headerlink\" href=\"#prerequisites\" title=\"Permanent link\">&para;</a></h2>\n<table>\n<thead>\n<tr>\n<th>Requirement</th>\n<th>Minimum</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Go</td>\n<td>1.24</td>\n</tr>\n<tr>\n<td>Canon EOS camera</td>\n<td>WiFi / PTP/IP enabled</td>\n</tr>\n<tr>\n<td>Storage backend</td>\n<td>SMB share, FTP server, S3 bucket, Azure Blob, or GCS bucket</td>\n</tr>\n</tbody>\n</table>\n<h2 id=\"1-enable-wifi-on-the-camera\">1. Enable WiFi on the camera<a class=\"headerlink\" href=\"#1-enable-wifi-on-the-camera\" title=\"Permanent link\">&para;</a></h2>\n<p>On a Canon EOS 2000D (and most modern EOS bodies):</p>\n<ol>\n<li><strong>Menu → WiFi/Bluetooth → WiFi function → Other cameras / Connect</strong>  </li>\n<li>Note the <strong>SSID</strong> and connect your machine to that network, or join the same LAN if using infrastructure mode.</li>\n</ol>\n<p>The camera listens on <strong>TCP port 15740</strong> (PTP/IP).</p>\n<h2 id=\"2-install-from-source\">2. Install from source<a class=\"headerlink\" href=\"#2-install-from-source\" title=\"Permanent link\">&para;</a></h2>\n<div class=\"language-bash highlight\"><pre><span></span><code><span id=\"__span-0-1\"><a id=\"__codelineno-0-1\" name=\"__codelineno-0-1\" href=\"#__codelineno-0-1\"></a>git<span class=\"w\"> </span>clone<span class=\"w\"> </span>https://github.com/pacorreia/canon-proxy.git\n</span><span id=\"__span-0-2\"><a id=\"__codelineno-0-2\" name=\"__codelineno-0-2\" href=\"#__codelineno-0-2\"></a><span class=\"nb\">cd</span><span class=\"w\"> </span>canon-proxy\n</span><span id=\"__span-0-3\"><a id=\"__codelineno-0-3\" name=\"__codelineno-0-3\" href=\"#__codelineno-0-3\"></a>go<span class=\"w\"> </span>build<span class=\"w\"> </span>-o<span class=\"w\"> </span>canon-proxy<span class=\"w\"> </span>./cmd/canon-proxy\n</span></code></pre></div>\n<h2 id=\"3-configure\">3. Configure<a class=\"headerlink\" href=\"#3-configure\" title=\"Permanent link\">&para;</a></h2>\n<div class=\"language-bash highlight\"><pre><span></span><code><span id=\"__span-1-1\"><a id=\"__codelineno-1-1\" name=\"__codelineno-1-1\" href=\"#__codelineno-1-1\"></a>cp<span class=\"w\"> </span>config.example.yaml<span class=\"w\"> </span>config.yaml\n</span></code></pre></div>\n<p>Edit <code>config.yaml</code> — at minimum set <code>camera.host</code> to your camera's IP:</p>\n<div class=\"language-yaml highlight\"><pre><span></span><code><span id=\"__span-2-1\"><a id=\"__codelineno-2-1\" name=\"__codelineno-2-1\" href=\"#__codelineno-2-1\"></a><span class=\"nt\">camera</span><span class=\"p\">:</span>\n</span><span id=\"__span-2-2\"><a id=\"__codelineno-2-2\" name=\"__codelineno-2-2\" href=\"#__codelineno-2-2\"></a><span class=\"w\">  </span><span class=\"nt\">host</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&quot;192.168.2.70&quot;</span><span class=\"w\">   </span><span class=\"c1\"># your camera&#39;s IP</span>\n</span><span id=\"__span-2-3\"><a id=\"__codelineno-2-3\" name=\"__codelineno-2-3\" href=\"#__codelineno-2-3\"></a><span class=\"w\">  </span><span class=\"nt\">port</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">15740</span>\n</span><span id=\"__span-2-4\"><a id=\"__codelineno-2-4\" name=\"__codelineno-2-4\" href=\"#__codelineno-2-4\"></a><span class=\"w\">  </span><span class=\"nt\">poll_interval</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"l l-Scalar l-Scalar-Plain\">5s</span>\n</span></code></pre></div>\n<div class=\"admonition tip\">\n<p class=\"admonition-title\">Settings are stored in the database</p>\n<p>After the first run, all settings are persisted in the SQLite database and editable live from the <strong>Settings</strong> page in the web UI. Changes to <code>config.yaml</code> are ignored once a setting exists in the DB.</p>\n</div>\n<h2 id=\"4-run\">4. Run<a class=\"headerlink\" href=\"#4-run\" title=\"Permanent link\">&para;</a></h2>\n<div class=\"language-bash highlight\"><pre><span></span><code><span id=\"__span-3-1\"><a id=\"__codelineno-3-1\" name=\"__codelineno-3-1\" href=\"#__codelineno-3-1\"></a>./canon-proxy<span class=\"w\"> </span>--config<span class=\"w\"> </span>config.yaml\n</span></code></pre></div>\n<p>Open <strong><a href=\"http://localhost:9090\">http://localhost:9090</a></strong> — you should see the web UI with thumbnails appearing as the initial sync runs.</p>\n<h2 id=\"5-configure-a-storage-backend\">5. Configure a storage backend<a class=\"headerlink\" href=\"#5-configure-a-storage-backend\" title=\"Permanent link\">&para;</a></h2>\n<p>Go to <strong>Settings</strong> in the web UI and configure your preferred backend. For example, to use an SMB share:</p>\n<table>\n<thead>\n<tr>\n<th>Field</th>\n<th>Value</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Backend</td>\n<td><code>smb</code></td>\n</tr>\n<tr>\n<td>Host</td>\n<td><code>192.168.2.9</code></td>\n</tr>\n<tr>\n<td>Share</td>\n<td><code>photos</code></td>\n</tr>\n<tr>\n<td>Username</td>\n<td><code>user</code></td>\n</tr>\n<tr>\n<td>Password</td>\n<td><code>secret</code></td>\n</tr>\n<tr>\n<td>Path</td>\n<td><code>/uploads</code></td>\n</tr>\n</tbody>\n</table>\n<h2 id=\"6-queue-images-for-upload\">6. Queue images for upload<a class=\"headerlink\" href=\"#6-queue-images-for-upload\" title=\"Permanent link\">&para;</a></h2>\n<p>Images are discovered automatically and shown in the web UI. Select the ones you want and click <strong>Queue selected</strong> or <strong>Queue all</strong> to start uploading.</p>\n<p>Uploads start as soon as an image is queued.</p>\n<h2 id=\"next-steps\">Next Steps<a class=\"headerlink\" href=\"#next-steps\" title=\"Permanent link\">&para;</a></h2>\n<ul>\n<li><a href=\"../configuration/\">Configuration reference</a></li>\n<li><a href=\"../architecture/\">Architecture overview</a></li>\n<li><a href=\"../deployment/\">Docker &amp; Kubernetes deployment</a></li>\n</ul>",
+    "search": [
+      {
+        "location": null,
+        "level": 1,
+        "title": "Getting Started",
+        "text": "",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "prerequisites",
+        "level": 2,
+        "title": "Prerequisites",
+        "text": "Requirement Minimum Go 1.24 Canon EOS camera WiFi / PTP/IP enabled Storage backend SMB share, FTP server, S3 bucket, Azure Blob, or GCS bucket",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "1-enable-wifi-on-the-camera",
+        "level": 2,
+        "title": "1. Enable WiFi on the camera",
+        "text": "<p>On a Canon EOS 2000D (and most modern EOS bodies):</p> <ol> <li>Menu → WiFi/Bluetooth → WiFi function → Other cameras / Connect </li> <li>Note the SSID and connect your machine to that network, or join the same LAN if using infrastructure mode.</li> </ol> <p>The camera listens on TCP port 15740 (PTP/IP).</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "2-install-from-source",
+        "level": 2,
+        "title": "2. Install from source",
+        "text": "<pre><code>git clone https://github.com/pacorreia/canon-proxy.git\ncd canon-proxy\ngo build -o canon-proxy ./cmd/canon-proxy\n</code></pre>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "3-configure",
+        "level": 2,
+        "title": "3. Configure",
+        "text": "<pre><code>cp config.example.yaml config.yaml\n</code></pre> <p>Edit <code>config.yaml</code> — at minimum set <code>camera.host</code> to your camera's IP:</p> <pre><code>camera:\n  host: \"192.168.2.70\"   # your camera's IP\n  port: 15740\n  poll_interval: 5s\n</code></pre> <p>Settings are stored in the database</p> <p>After the first run, all settings are persisted in the SQLite database and editable live from the Settings page in the web UI. Changes to <code>config.yaml</code> are ignored once a setting exists in the DB.</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "4-run",
+        "level": 2,
+        "title": "4. Run",
+        "text": "<pre><code>./canon-proxy --config config.yaml\n</code></pre> <p>Open http://localhost:9090 — you should see the web UI with thumbnails appearing as the initial sync runs.</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "5-configure-a-storage-backend",
+        "level": 2,
+        "title": "5. Configure a storage backend",
+        "text": "<p>Go to Settings in the web UI and configure your preferred backend. For example, to use an SMB share:</p> Field Value Backend <code>smb</code> Host <code>192.168.2.9</code> Share <code>photos</code> Username <code>user</code> Password <code>secret</code> Path <code>/uploads</code>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "6-queue-images-for-upload",
+        "level": 2,
+        "title": "6. Queue images for upload",
+        "text": "<p>Images are discovered automatically and shown in the web UI. Select the ones you want and click Queue selected or Queue all to start uploading.</p> <p>Uploads start as soon as an image is queued.</p>",
+        "path": [],
+        "tags": []
+      },
+      {
+        "location": "next-steps",
+        "level": 2,
+        "title": "Next Steps",
+        "text": "<ul> <li>Configuration reference</li> <li>Architecture overview</li> <li>Docker &amp; Kubernetes deployment</li> </ul>",
+        "path": [],
+        "tags": []
+      }
+    ],
+    "title": "Getting Started",
+    "toc": [
+      {
+        "title": "Getting Started",
+        "content": "Getting Started",
+        "id": "getting-started",
+        "url": "#getting-started",
+        "children": [
+          {
+            "title": "Prerequisites",
+            "content": "Prerequisites",
+            "id": "prerequisites",
+            "url": "#prerequisites",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "1. Enable WiFi on the camera",
+            "content": "1. Enable WiFi on the camera",
+            "id": "1-enable-wifi-on-the-camera",
+            "url": "#1-enable-wifi-on-the-camera",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "2. Install from source",
+            "content": "2. Install from source",
+            "id": "2-install-from-source",
+            "url": "#2-install-from-source",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "3. Configure",
+            "content": "3. Configure",
+            "id": "3-configure",
+            "url": "#3-configure",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "4. Run",
+            "content": "4. Run",
+            "id": "4-run",
+            "url": "#4-run",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "5. Configure a storage backend",
+            "content": "5. Configure a storage backend",
+            "id": "5-configure-a-storage-backend",
+            "url": "#5-configure-a-storage-backend",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "6. Queue images for upload",
+            "content": "6. Queue images for upload",
+            "id": "6-queue-images-for-upload",
+            "url": "#6-queue-images-for-upload",
+            "children": [],
+            "level": 2
+          },
+          {
+            "title": "Next Steps",
+            "content": "Next Steps",
+            "id": "next-steps",
+            "url": "#next-steps",
+            "children": [],
+            "level": 2
+          }
+        ],
+        "level": 1
+      }
+    ]
+  },
+  "hash": 13839681310616604646
+}
