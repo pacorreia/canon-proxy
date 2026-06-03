@@ -69,8 +69,11 @@ func (r *SettingRepo) SetMany(kv map[string]string) error {
 // SeedDefaults inserts defaults for keys that do not yet exist in the database.
 func (r *SettingRepo) SeedDefaults(defaults map[string]string) error {
 	for k, v := range defaults {
-		r.db.Clauses(clause.OnConflict{DoNothing: true}).
-			Create(&SettingRecord{Key: k, Value: v})
+		if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).
+			Create(&SettingRecord{Key: k, Value: v}).Error; err != nil {
+			return err
+		}
 	}
 	return nil
+}
 }
