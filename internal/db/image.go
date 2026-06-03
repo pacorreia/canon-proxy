@@ -62,6 +62,8 @@ func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, is
 		return nil, false, result.Error
 	}
 	// If the camera reuses a handle/URL (common after DeleteObject), treat it as a new image.
+	// We only reset terminal states (done/failed) to avoid interfering with images that are
+	// currently queued or being uploaded on the same URL.
 	if (rec.Status == StatusDone || rec.Status == StatusFailed) && rec.Filename != filename {
 		updates := map[string]interface{}{
 			"filename":      filename,
