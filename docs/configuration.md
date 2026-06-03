@@ -90,9 +90,9 @@ backends:
   s3:
     bucket: "my-bucket"
     region: "eu-west-1"
-    access_key_id: "AKIA..."
-    secret_access_key: "..."
-    path_prefix: "camera/"
+    prefix: "camera/"
+    access_key: "AKIA..."
+    secret_key: "..."
 ```
 
 ### Azure Blob Storage
