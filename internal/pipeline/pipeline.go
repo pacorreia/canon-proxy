@@ -144,6 +144,13 @@ func (p *Pipeline) Run(ctx context.Context) error {
 					if !ok {
 						return
 					}
+					// Re-check the gate after dequeueing: if Pause() was called
+					// while this worker was blocking on pushCh, wait for Resume()
+					// before starting the upload.
+					if !p.awaitGate(ctx) {
+						p.store.SetStatus(img.URL, store.StatusQueued, "context cancelled")
+						return
+					}
 					if err := p.processImage(ctx, img, id); err != nil {
 						log.Printf("level=error component=pipeline worker=%d file=%q err=%q", id, img.Filename, err)
 					}
