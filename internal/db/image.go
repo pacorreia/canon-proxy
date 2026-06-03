@@ -60,6 +60,29 @@ func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, is
 	if result.Error != nil {
 		return nil, false, result.Error
 	}
+	// If the camera reuses a handle/URL (common after DeleteObject), treat it as a new image.
+	if (rec.Status == StatusDone || rec.Status == StatusFailed) && rec.Filename != filename {
+		updates := map[string]interface{}{
+			"filename":      filename,
+			"status":        StatusDiscovered,
+			"retry_count":   0,
+			"last_error":    "",
+			"next_retry_at": nil,
+			"captured_at":   capturedAt,
+			"is_video":      isVideo,
+		}
+		if err := r.db.Model(&rec).Updates(updates).Error; err != nil {
+			return nil, false, err
+		}
+		rec.Filename = filename
+		rec.Status = StatusDiscovered
+		rec.RetryCount = 0
+		rec.LastError = ""
+		rec.NextRetryAt = nil
+		rec.CapturedAt = capturedAt
+		rec.IsVideo = isVideo
+		return &rec, false, nil
+	}
 	// Backfill CapturedAt if we now have it and the record doesn't.
 	updates := map[string]interface{}{}
 	if capturedAt != nil && rec.CapturedAt == nil {
