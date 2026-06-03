@@ -101,9 +101,11 @@ func (s *Store) SetStatus(url string, status Status, errMsg string) {
 	s.notify()
 }
 
-// SetRetryQueued sets an image back to "queued" with retry metadata.
 func (s *Store) SetRetryQueued(url string, retryCount int, nextRetryAt time.Time, errMsg string) {
-	_ = s.repo.SetRetryQueued(url, retryCount, nextRetryAt, errMsg)
+	if err := s.repo.SetRetryQueued(url, retryCount, nextRetryAt, errMsg); err != nil {
+		log.Printf("level=error component=store msg=\"SetRetryQueued failed\" url=%q err=%q", url, err)
+		return
+	}
 	s.notify()
 }
 
