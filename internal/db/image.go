@@ -123,7 +123,6 @@ func (r *ImageRepo) GetByURL(url string) (*ImageRecord, error) {
 	return &rec, err
 }
 
-// GetByFilename returns the image with the given filename, or nil if not found.
 func (r *ImageRepo) GetByFilename(filename string) (*ImageRecord, error) {
 	var rec ImageRecord
 	err := r.db.Where("filename = ?", filename).First(&rec).Error
