@@ -952,7 +952,6 @@ func parsePTPUint32Array(data []byte) []uint32 {
 	for i := range result {
 		result[i] = binary.LittleEndian.Uint32(data[4+i*4 : 8+i*4])
 	}
-	}
 	return result
 }
 

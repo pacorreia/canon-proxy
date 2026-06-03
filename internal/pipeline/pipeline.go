@@ -163,6 +163,13 @@ func (p *Pipeline) Run(ctx context.Context) error {
 	return nil
 }
 
+func (p *Pipeline) retryScheduler(ctx context.Context) {
+	ticker := time.NewTicker(retrySchedulerTick)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
 		case <-ticker.C:
 			todo := append(p.store.AllFreshQueued(), p.store.ListReadyToRetry()...)
 			for _, e := range todo {

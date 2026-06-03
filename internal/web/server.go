@@ -136,7 +136,7 @@ func (c *boundedCache) Store(key string, value []byte) {
 type Server struct {
 	store        *store.Store
 	thumbFunc    ThumbFunc
-	thumbCache   *boundedCache // filename -> thumbnail bytes; evicts oldest when full
+	thumbCache   *boundedCache // filename -> thumbnail bytes; evicts an arbitrary entry when capacity is reached
 	downloadFunc DownloadFunc
 	queue        QueueFunc
 	queueCtrl    QueueController

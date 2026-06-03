@@ -45,6 +45,7 @@ func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, is
 	var rec ImageRecord
 	result := r.db.Where("url = ?", url).First(&rec)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		rec = ImageRecord{
 			Filename:   filename,
 			URL:        url,
 			Status:     StatusDiscovered,
