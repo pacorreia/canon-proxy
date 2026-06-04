@@ -27,7 +27,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
-          elif printf '%s\n' "${{ github.event.head_commit.message }}" | head -n 1 | grep -qE '^(feat|fix)(\([^)]*\))?!?:|^chore(\([^)]*\))?: release'; then
+          elif printf '%s\n' "${{ github.event.head_commit.message }}" | head -n 1 | grep -qE '^(feat|fix)(\([^)]*\))?!?:|^chore(\([^)]*\))?: release|^Merge pull request #[0-9]+ from .*/release-please--branches--'; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
           else
             echo "should_run=false" >> "$GITHUB_OUTPUT"
