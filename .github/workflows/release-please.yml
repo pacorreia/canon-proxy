@@ -40,7 +40,7 @@ jobs:
     if: needs.check-commit.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs.release_created || steps.release-forced.outputs.release_created }}
+      release_created: ${{ steps.release.outputs.release_created || steps.release-forced.outputs.release_created || steps.forced-flag.outputs.release_created }}
       tag_name:        ${{ steps.release.outputs.tag_name || steps.release-forced.outputs.tag_name }}
     steps:
       - name: Run release-please
@@ -56,11 +56,21 @@ jobs:
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         if: github.event_name == 'workflow_dispatch' && inputs.release_as != ''
         id: release-forced
+        continue-on-error: true  # release already exists if re-running for same version
         with:
           config-file:   release-please-config.json
           manifest-file: .release-please-manifest.json
           release-as:    ${{ inputs.release_as }}
           token:         ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure release_created for forced dispatch
+        if: github.event_name == 'workflow_dispatch' && inputs.release_as != ''
+        id: forced-flag
+        run: |
+          if [ "${{ steps.release-forced.outcome }}" = "failure" ]; then
+            echo "::warning::release-please step failed (release likely already exists) — proceeding to build/publish artifacts for v${{ inputs.release_as }}"
+          fi
+          echo "release_created=true" >> "$GITHUB_OUTPUT"
 
   # ── Resolve release tag (both automated and on-demand paths) ─────────────
   get-tag:
