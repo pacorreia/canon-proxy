@@ -27,7 +27,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
-          elif echo "${{ github.event.head_commit.message }}" | grep -qE '^(feat!|feat|fix)(\([^)]*\))?!?:'; then
+          elif echo "${{ github.event.head_commit.message }}" | grep -qE '^(feat!|feat|fix)(\([^)]*\))?!?:|^chore(\([^)]*\))?: release'; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
           else
             echo "should_run=false" >> "$GITHUB_OUTPUT"
