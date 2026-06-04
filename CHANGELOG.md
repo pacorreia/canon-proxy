@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0](https://github.com/pacorreia/canon-proxy/compare/v1.1.0...v1.2.0) (2026-06-04)
+
+
+### Features
+
+* add camera pairing GUID to settings page ([3de4b61](https://github.com/pacorreia/canon-proxy/commit/3de4b619c465c4e5604d3df5fcff77ad0c504969))
+
+
+### Bug Fixes
+
+* allow release-please PR merges to pass commit check and build binaries ([b433d22](https://github.com/pacorreia/canon-proxy/commit/b433d22b3e1754afc9b8ea5c7e3f3b6564ca55cc))
+* correct parseGUID comment and handle spaces in GUID strings ([0a71596](https://github.com/pacorreia/canon-proxy/commit/0a7159633eaa1a9d8d79be97a388a877129b249e))
+* Merge pull request [#20](https://github.com/pacorreia/canon-proxy/issues/20) from pacorreia/copilot/release-workflow-fix ([e248831](https://github.com/pacorreia/canon-proxy/commit/e2488311524d442af9b2647074ad3ee07a5d0b38))
+* release binaries not built when merging release-please PR ([e248831](https://github.com/pacorreia/canon-proxy/commit/e2488311524d442af9b2647074ad3ee07a5d0b38))
+
 ## [1.1.0](https://github.com/pacorreia/canon-proxy/compare/v1.0.0...v1.1.0) (2026-06-03)
 
 
