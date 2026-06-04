@@ -78,7 +78,7 @@ func main() {
 		if g, ok := parseGUID(guidStr); ok {
 			canon.SetClientGUID(g)
 		} else {
-			logger.Warn("msg=\"invalid camera.guid in settings; using default\" value=%q", guidStr)
+			logger.Warn("msg=\"invalid camera.guid in settings; using default\" value=%q expected=\"32 hex digits, optionally formatted as xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\"", guidStr)
 		}
 	}
 
