@@ -317,6 +317,7 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
         <div class="setting-row"><label>Port</label><input id="s-camera-port" type="number" placeholder="15740"></div>
         <div class="setting-row"><label>Listen Addr</label><input id="s-camera-listen" placeholder=":15740 (server mode)"></div>
         <div class="setting-row"><label>Poll Interval</label><input id="s-camera-poll" placeholder="5s"></div>
+        <div class="setting-row"><label>Pairing GUID</label><input id="s-camera-guid" placeholder="cafebabe-dead-beef-0001-63616e6f6e78" title="16-byte UUID sent to the camera during PTP/IP pairing"></div>
         <div class="setting-row">
           <label>Delete After Upload</label>
           <select id="s-camera-delete-after-upload">
@@ -1139,6 +1140,7 @@ function applySettingsToForm(s) {
   set('s-camera-port',   'camera.port', '15740');
   set('s-camera-listen', 'camera.listen_addr', '');
   set('s-camera-poll',   'camera.poll_interval', '5s');
+  set('s-camera-guid',   'camera.guid', 'cafebabe-dead-beef-0001-63616e6f6e78');
   set('s-camera-delete-after-upload', 'camera.delete_after_upload', 'false');
   set('s-upload-workers','upload.workers', '1');
   set('s-upload-backend','upload.backend', 'smb');
@@ -1174,6 +1176,7 @@ function collectSettingsFromForm() {
     'camera.port': get('s-camera-port'),
     'camera.listen_addr': get('s-camera-listen'),
     'camera.poll_interval': get('s-camera-poll'),
+    'camera.guid': get('s-camera-guid'),
     'camera.delete_after_upload': get('s-camera-delete-after-upload'),
     'upload.workers': get('s-upload-workers'),
     'upload.backend': get('s-upload-backend'),
