@@ -31,7 +31,7 @@ func (b *FTPBackend) Name() string {
 
 func (b *FTPBackend) Close() error { return nil }
 
-func (b *FTPBackend) Upload(ctx context.Context, filename string, r io.Reader) error {
+func (b *FTPBackend) Upload(ctx context.Context, filename, destPath string, r io.Reader) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("context cancelled before ftp upload: %w", err)
 	}
@@ -52,7 +52,13 @@ func (b *FTPBackend) Upload(ctx context.Context, filename string, r io.Reader) e
 		return fmt.Errorf("ftp login: %w", err)
 	}
 
-	dir := path.Clean("/" + strings.TrimPrefix(b.cfg.Path, "/"))
+	base := path.Clean("/" + strings.TrimPrefix(b.cfg.Path, "/"))
+	var dir string
+	if destPath != "" {
+		dir = path.Join(base, strings.TrimPrefix(path.Clean("/"+destPath), "/"))
+	} else {
+		dir = base
+	}
 	if dir != "/" {
 		if err := conn.ChangeDir(dir); err != nil {
 			if err := conn.MakeDir(dir); err != nil {

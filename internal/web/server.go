@@ -6,14 +6,18 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
+	gopath "path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/pacorreia/canon-proxy/internal/canon"
 	"github.com/pacorreia/canon-proxy/internal/db"
 	"github.com/pacorreia/canon-proxy/internal/logger"
@@ -32,6 +36,13 @@ type ThumbFunc func(ctx context.Context, imageURL string) (io.ReadCloser, error)
 // DownloadFunc fetches the full-resolution image data from the camera.
 type DownloadFunc func(ctx context.Context, image canon.Image) (io.ReadCloser, error)
 
+// ListFoldersFunc returns the list of DCIM subfolders currently on the camera.
+type ListFoldersFunc func(ctx context.Context) ([]canon.CameraFolder, error)
+
+// ShareFoldersFunc lists subdirectory names on the file share backend at the given path.
+// path is slash-separated and relative to the share root (e.g. "/" or "/photos").
+type ShareFoldersFunc func(ctx context.Context, path string) ([]string, error)
+
 // QueueController exposes pipeline pause/resume/clear controls to the web layer.
 type QueueController struct {
 	Pause    func()
@@ -40,96 +51,16 @@ type QueueController struct {
 	IsPaused func() bool
 }
 
-// sseClient is a single SSE subscriber.
-type sseClient struct {
-	ch chan struct{}
+var wsUpgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 16384,
+	// Allow all origins for local LAN use.
+	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-// logClient is a subscriber to the live log stream.
-type logClient struct {
-	ch chan string
-}
-
-// LogBroadcaster is an io.Writer that fans log lines out to all connected /api/logs SSE clients.
-// Wire it as a tee on log.SetOutput so every log.Printf line reaches the browser.
-type LogBroadcaster struct {
-	mu      sync.Mutex
-	clients map[*logClient]struct{}
-	buf     []string // ring buffer of recent lines
-}
-
-// NewLogBroadcaster returns an initialised LogBroadcaster.
-func NewLogBroadcaster() *LogBroadcaster { return &LogBroadcaster{clients: make(map[*logClient]struct{})} }
-
-const logRingSize = 200
-
-// Write implements io.Writer. Each call is treated as one log line.
-func (lb *LogBroadcaster) Write(p []byte) (int, error) {
-	line := strings.TrimRight(string(p), "\n")
-	lb.mu.Lock()
-	if len(lb.buf) >= logRingSize {
-		lb.buf = lb.buf[1:]
-	}
-	lb.buf = append(lb.buf, line)
-	for c := range lb.clients {
-		select {
-		case c.ch <- line:
-		default: // slow client: drop the line rather than block
-		}
-	}
-	lb.mu.Unlock()
-	return len(p), nil
-}
-
-func (lb *LogBroadcaster) subscribe() (*logClient, []string) {
-	c := &logClient{ch: make(chan string, 64)}
-	lb.mu.Lock()
-	snap := make([]string, len(lb.buf))
-	copy(snap, lb.buf)
-	lb.clients[c] = struct{}{}
-	lb.mu.Unlock()
-	return c, snap
-}
-
-func (lb *LogBroadcaster) unsubscribe(c *logClient) {
-	lb.mu.Lock()
-	delete(lb.clients, c)
-	lb.mu.Unlock()
-}
-
-// boundedCache is a simple thread-safe cache with a fixed maximum number of
-// entries. When the cache is full, one entry is evicted arbitrarily before the
-// new entry is inserted. This prevents unbounded memory growth in long-running
-// deployments with large SD cards.
-const thumbCacheMaxSize = 512
-
-type boundedCache struct {
-	mu      sync.Mutex
-	entries map[string][]byte
-}
-
-func newBoundedCache() *boundedCache {
-	return &boundedCache{entries: make(map[string][]byte)}
-}
-
-func (c *boundedCache) Load(key string) ([]byte, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	v, ok := c.entries[key]
-	return v, ok
-}
-
-func (c *boundedCache) Store(key string, value []byte) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if _, exists := c.entries[key]; !exists && len(c.entries) >= thumbCacheMaxSize {
-		// Evict an arbitrary entry to stay within the size limit.
-		for k := range c.entries {
-			delete(c.entries, k)
-			break
-		}
-	}
-	c.entries[key] = value
+// wsClient is a single WebSocket subscriber.
+type wsClient struct {
+	send chan []byte
 }
 
 // Server is the web UI HTTP server.
@@ -138,35 +69,63 @@ type Server struct {
 	thumbFunc         ThumbFunc
 	thumbCache        *boundedCache // filename -> thumbnail bytes; evicts an arbitrary entry when capacity is reached
 	downloadFunc      DownloadFunc
+	listFoldersFunc   ListFoldersFunc
+	shareFoldersFunc  ShareFoldersFunc
 	queue             QueueFunc
 	queueCtrl         QueueController
 	settingRepo       *db.SettingRepo
+	pairingRepo       *db.FolderPairingRepo
 	restartFunc       func() // called to restart the process
 	onSettingsChanged func(map[string]string) // called after settings are saved; may be nil
 	logBcast          *LogBroadcaster
 	httpServer        *http.Server
+	poller            *canon.Poller
 
-	sseMu   sync.Mutex
-	sseSubs map[*sseClient]struct{}
+	wsMu   sync.Mutex
+	wsSubs map[*wsClient]struct{}
+}
+
+// ServerConfig holds all dependencies and configuration for the web server.
+// Using a config struct makes it easy to add new dependencies without breaking
+// existing call sites.
+type ServerConfig struct {
+	Store             *store.Store
+	ThumbFunc         ThumbFunc
+	DownloadFunc      DownloadFunc
+	ListFoldersFunc   ListFoldersFunc
+	ShareFoldersFunc  ShareFoldersFunc
+	Queue             QueueFunc
+	Listen            string
+	QueueCtrl         QueueController
+	SettingRepo       *db.SettingRepo
+	PairingRepo       *db.FolderPairingRepo
+	RestartFunc       func()
+	LogBcast          *LogBroadcaster
+	OnSettingsChanged func(map[string]string)
+	Poller            *canon.Poller
 }
 
 // New creates a Server and registers all routes.
-func New(st *store.Store, thumbFunc ThumbFunc, downloadFunc DownloadFunc, queue QueueFunc, listen string, qc QueueController, settingRepo *db.SettingRepo, restartFunc func(), logBcast *LogBroadcaster, onSettingsChanged func(map[string]string)) *Server {
+func New(cfg ServerConfig) *Server {
 	s := &Server{
-		store:             st,
-		thumbFunc:         thumbFunc,
+		store:             cfg.Store,
+		thumbFunc:         cfg.ThumbFunc,
 		thumbCache:        newBoundedCache(),
-		downloadFunc:      downloadFunc,
-		queue:             queue,
-		queueCtrl:         qc,
-		settingRepo:       settingRepo,
-		restartFunc:       restartFunc,
-		onSettingsChanged: onSettingsChanged,
-		logBcast:          logBcast,
-		sseSubs:           make(map[*sseClient]struct{}),
+		downloadFunc:      cfg.DownloadFunc,
+		listFoldersFunc:   cfg.ListFoldersFunc,
+		shareFoldersFunc:  cfg.ShareFoldersFunc,
+		queue:             cfg.Queue,
+		queueCtrl:         cfg.QueueCtrl,
+		settingRepo:       cfg.SettingRepo,
+		pairingRepo:       cfg.PairingRepo,
+		restartFunc:       cfg.RestartFunc,
+		onSettingsChanged: cfg.OnSettingsChanged,
+		logBcast:          cfg.LogBcast,
+		poller:            cfg.Poller,
+		wsSubs:            make(map[*wsClient]struct{}),
 	}
 
-	st.SetOnChange(s.broadcast)
+	cfg.Store.SetOnChange(s.broadcast)
 
 	mux := http.NewServeMux()
 
@@ -183,7 +142,8 @@ func New(st *store.Store, thumbFunc ThumbFunc, downloadFunc DownloadFunc, queue 
 	mux.HandleFunc("/api/images/queue-all", s.handleQueueAll)
 	mux.HandleFunc("/api/images/retry-failed", s.handleRetryFailed)
 	mux.HandleFunc("/api/images/download", s.handleDownloadZip)
-	mux.HandleFunc("/api/events", s.handleSSE)
+	// Events
+	mux.HandleFunc("/api/events", s.handleWS)
 	// Per-image routes: /api/images/{filename}/thumb and /api/images/{filename}/download
 	mux.HandleFunc("/api/images/", s.handleImageFile)
 
@@ -198,6 +158,16 @@ func New(st *store.Store, thumbFunc ThumbFunc, downloadFunc DownloadFunc, queue 
 
 	// Camera discovery
 	mux.HandleFunc("/api/camera/scan", s.handleCameraScan)
+	mux.HandleFunc("/api/camera/folders", s.handleCameraFolders)
+	mux.HandleFunc("/api/camera/poll/trigger", s.handlePollTrigger)
+	mux.HandleFunc("/api/camera/poll/settings", s.handlePollSettings)
+
+	// Share folder browser
+	mux.HandleFunc("/api/share/folders", s.handleShareFolders)
+
+	// Folder pairings
+	mux.HandleFunc("/api/pairings", s.handlePairings)
+	mux.HandleFunc("/api/pairings/", s.handlePairingByID)
 
 	// Live log stream
 	mux.HandleFunc("/api/logs", s.handleLogStream)
@@ -206,7 +176,7 @@ func New(st *store.Store, thumbFunc ThumbFunc, downloadFunc DownloadFunc, queue 
 	mux.HandleFunc("/api/system/restart", s.handleRestart)
 
 	s.httpServer = &http.Server{
-		Addr:         listen,
+		Addr:         cfg.Listen,
 		Handler:      mux,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -231,63 +201,153 @@ func (s *Server) Start(ctx context.Context) {
 	}
 }
 
-// broadcast sends a ping to all connected SSE clients.
+// broadcast encodes the current image list and pushes it to all connected WebSocket clients.
 func (s *Server) broadcast() {
-	s.sseMu.Lock()
-	defer s.sseMu.Unlock()
-	for c := range s.sseSubs {
+	entries := s.store.List()
+	if entries == nil {
+		entries = []store.Entry{}
+	}
+	data, err := json.Marshal(entries)
+	if err != nil {
+		return
+	}
+	s.wsMu.Lock()
+	defer s.wsMu.Unlock()
+	for c := range s.wsSubs {
 		select {
-		case c.ch <- struct{}{}:
-		default:
+		case c.send <- data:
+		default: // client too slow, drop frame
 		}
 	}
 }
 
-// ---------- SSE ---------------------------------------------------------------
+// ---------- WebSocket ---------------------------------------------------------
 
-// handleSSE — GET /api/events
-func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+// handleWS — GET /api/events (WebSocket upgrade)
+func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
+	conn, err := wsUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger.Warn("component=web msg=\"WS upgrade failed\" err=%q", err)
 		return
 	}
-	// SSE connections are long-lived; clear the per-connection write deadline so
-	// the server-wide WriteTimeout does not prematurely close the stream.
-	rc := http.NewResponseController(w)
-	if err := rc.SetWriteDeadline(time.Time{}); err != nil {
-		logger.Warn("component=web msg=\"could not clear SSE write deadline\" err=%q", err)
-	}
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("X-Accel-Buffering", "no")
 
-	client := &sseClient{ch: make(chan struct{}, 4)}
-	s.sseMu.Lock()
-	s.sseSubs[client] = struct{}{}
-	s.sseMu.Unlock()
-	defer func() {
-		s.sseMu.Lock()
-		delete(s.sseSubs, client)
-		s.sseMu.Unlock()
+	client := &wsClient{send: make(chan []byte, 16)}
+	s.wsMu.Lock()
+	s.wsSubs[client] = struct{}{}
+	s.wsMu.Unlock()
+
+	// Send initial data immediately on connect.
+	entries := s.store.List()
+	if entries == nil {
+		entries = []store.Entry{}
+	}
+	if data, err := json.Marshal(entries); err == nil {
+		client.send <- data
+	}
+
+	// Write goroutine: drains the send channel and sends ping frames.
+	writeDone := make(chan struct{})
+	go func() {
+		defer close(writeDone)
+		ping := time.NewTicker(25 * time.Second)
+		defer ping.Stop()
+		for {
+			select {
+			case msg, ok := <-client.send:
+				if !ok {
+					conn.Close()
+					return
+				}
+				conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+					conn.Close()
+					return
+				}
+			case <-ping.C:
+				conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					conn.Close()
+					return
+				}
+			}
+		}
 	}()
 
-	fmt.Fprintf(w, "event: update\ndata: {}\n\n")
-	flusher.Flush()
-
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
+	// Read loop: reset pong deadline; exit on disconnect.
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
 	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-client.ch:
-			fmt.Fprintf(w, "event: update\ndata: {}\n\n")
-			flusher.Flush()
-		case <-ticker.C:
-			fmt.Fprintf(w, ": keepalive\n\n")
-			flusher.Flush()
+		if _, _, err := conn.ReadMessage(); err != nil {
+			break
 		}
+	}
+
+	// Cleanup.
+	s.wsMu.Lock()
+	delete(s.wsSubs, client)
+	s.wsMu.Unlock()
+	close(client.send)
+	<-writeDone
+}
+
+// handlePollTrigger — POST /api/camera/poll/trigger
+func (s *Server) handlePollTrigger(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.poller == nil {
+		http.Error(w, "no poller configured", http.StatusServiceUnavailable)
+		return
+	}
+	s.poller.TriggerNow()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handlePollSettings — GET/POST /api/camera/poll/settings
+func (s *Server) handlePollSettings(w http.ResponseWriter, r *http.Request) {
+	if s.poller == nil {
+		http.Error(w, "no poller configured", http.StatusServiceUnavailable)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"enabled":      s.poller.AutoEnabled(),
+			"interval_sec": int(s.poller.Interval().Seconds()),
+		})
+	case http.MethodPost:
+		var body struct {
+			Enabled     bool `json:"enabled"`
+			IntervalSec int  `json:"interval_sec"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		s.poller.SetEnabled(body.Enabled)
+		if body.IntervalSec > 0 {
+			s.poller.SetInterval(time.Duration(body.IntervalSec) * time.Second)
+		}
+		// Persist so settings survive restarts.
+		if s.settingRepo != nil {
+			kv := map[string]string{
+				"camera.poll_enabled": strconv.FormatBool(body.Enabled),
+			}
+			if body.IntervalSec > 0 {
+				kv["camera.poll_interval"] = (time.Duration(body.IntervalSec) * time.Second).String()
+			}
+			if err := s.settingRepo.SetMany(kv); err != nil {
+				logger.Warn("component=web msg=\"persist poll settings\" err=%q", err)
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
@@ -310,15 +370,19 @@ func (s *Server) handleImages(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleQueue — POST /api/images/queue
-// Body: {"filenames":["IMG_0001.JPG",...]}
+// Body: {"filenames":["IMG_0001.JPG",...], "dest_path":"/optional/path", "upload_source":"manual"}
 // Marks selected discovered images as queued and starts uploading them.
+// dest_path, when provided, is stored on each record so it overrides any pairing destination.
+// upload_source defaults to "manual" when not provided.
 func (s *Server) handleQueue(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	var req struct {
-		Filenames []string `json:"filenames"`
+		Filenames    []string `json:"filenames"`
+		DestPath     string   `json:"dest_path"`
+		UploadSource string   `json:"upload_source"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid JSON body", http.StatusBadRequest)
@@ -327,6 +391,9 @@ func (s *Server) handleQueue(w http.ResponseWriter, r *http.Request) {
 	if len(req.Filenames) == 0 {
 		http.Error(w, "filenames must not be empty", http.StatusBadRequest)
 		return
+	}
+	if req.UploadSource == "" {
+		req.UploadSource = "manual"
 	}
 	entries := s.store.DiscoveredByFilenames(req.Filenames)
 	if len(entries) == 0 {
@@ -337,8 +404,11 @@ func (s *Server) handleQueue(w http.ResponseWriter, r *http.Request) {
 	for i, e := range entries {
 		urls[i] = e.URL
 	}
-	s.store.MarkQueued(urls)
-	s.queue(entriesToImages(entries))
+	if req.DestPath != "" {
+		s.store.MarkQueuedWithMeta(urls, req.DestPath, req.UploadSource)
+	} else {
+		s.store.MarkQueuedWithMeta(urls, "", req.UploadSource)
+	}
 	w.WriteHeader(http.StatusAccepted)
 }
 
@@ -556,8 +626,9 @@ func (s *Server) handleQueueStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	paused := s.queueCtrl.IsPaused != nil && s.queueCtrl.IsPaused()
+	cameraConnected := s.poller != nil && s.poller.CameraConnected()
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"paused":%v}`+"\n", paused)
+	fmt.Fprintf(w, `{"paused":%v,"camera_connected":%v}`+"\n", paused, cameraConnected)
 }
 
 // handleQueuePause — POST /api/queue/pause
@@ -691,10 +762,10 @@ func (s *Server) handleCameraScan(w http.ResponseWriter, r *http.Request) {
 	logger.Info("component=web msg=\"camera scan started\"")
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	cameras, err := canon.DiscoverLAN(ctx)
+	cameras, err := canon.DiscoverLAN(ctx, canon.DiscoverOptions{})
 	if err != nil {
 		logger.Warn("component=web msg=\"camera scan error\" err=%q", err)
-		http.Error(w, "scan failed: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "camera scan failed", http.StatusInternalServerError)
 		return
 	}
 	if cameras == nil {
@@ -703,6 +774,172 @@ func (s *Server) handleCameraScan(w http.ResponseWriter, r *http.Request) {
 	logger.Info("component=web msg=\"camera scan done\" found=%d", len(cameras))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cameras)
+}
+
+// handleCameraFolders — GET /api/camera/folders
+// Returns the list of DCIM subfolders currently on the camera.
+// Requires the camera to be connected; returns 503 when not available.
+func (s *Server) handleCameraFolders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.listFoldersFunc == nil {
+		http.Error(w, "camera not configured", http.StatusServiceUnavailable)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	folders, err := s.listFoldersFunc(ctx)
+	if err != nil {
+		logger.Warn("component=web msg=\"list camera folders error\" err=%q", err)
+		http.Error(w, "failed to list camera folders", http.StatusInternalServerError)
+		return
+	}
+	if folders == nil {
+		folders = []canon.CameraFolder{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(folders)
+}
+
+// handleShareFolders — GET /api/share/folders?path=/
+// Returns subdirectory names on the file share backend at the given path.
+// path is slash-separated and relative to the share root.
+func (s *Server) handleShareFolders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.shareFoldersFunc == nil {
+		http.Error(w, "share browsing not available", http.StatusServiceUnavailable)
+		return
+	}
+	p := r.URL.Query().Get("path")
+	if p == "" {
+		p = "/"
+	}
+	// Sanitize: path.Clean resolves .. so the result stays within the share root.
+	p = gopath.Clean("/" + p)
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	names, err := s.shareFoldersFunc(ctx, p)
+	if err != nil {
+		logger.Warn("component=web msg=\"list share folders error\" path=%q err=%q", p, err)
+		http.Error(w, "failed to list share folders", http.StatusInternalServerError)
+		return
+	}
+	if names == nil {
+		names = []string{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(names)
+}
+
+// ---------- Folder pairings --------------------------------------------------
+
+// handlePairings — GET /api/pairings  or  POST /api/pairings
+func (s *Server) handlePairings(w http.ResponseWriter, r *http.Request) {
+	if s.pairingRepo == nil {
+		http.Error(w, "pairings not available", http.StatusNotImplemented)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		records, err := s.pairingRepo.List()
+		if err != nil {
+			logger.Error("component=web msg=\"list pairings\" err=%q", err)
+			http.Error(w, "failed to list pairings", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(records)
+
+	case http.MethodPost:
+		var req struct {
+			CameraFolder string `json:"camera_folder"`
+			SharePath    string `json:"share_path"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if req.CameraFolder == "" || req.SharePath == "" {
+			http.Error(w, "camera_folder and share_path are required", http.StatusBadRequest)
+			return
+		}
+		rec, err := s.pairingRepo.Create(req.CameraFolder, req.SharePath)
+		if err != nil {
+			if errors.Is(err, db.ErrPairingAlreadyExists) {
+				http.Error(w, fmt.Sprintf("camera folder %q is already paired — delete the existing pairing first", req.CameraFolder), http.StatusConflict)
+				return
+			}
+			logger.Error("component=web msg=\"create pairing\" err=%q", err)
+			http.Error(w, "failed to create pairing", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(rec)
+
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handlePairingByID — DELETE or PATCH /api/pairings/{id}
+func (s *Server) handlePairingByID(w http.ResponseWriter, r *http.Request) {
+	if s.pairingRepo == nil {
+		http.Error(w, "pairings not available", http.StatusNotImplemented)
+		return
+	}
+	// Extract ID from path: /api/pairings/{id}
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/pairings/")
+	if idStr == "" {
+		http.Error(w, "missing pairing ID", http.StatusBadRequest)
+		return
+	}
+	var id uint
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil || id == 0 {
+		http.Error(w, "invalid pairing ID", http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodDelete:
+		if err := s.pairingRepo.Delete(id); err != nil {
+			if errors.Is(err, db.ErrPairingNotFound) {
+				http.Error(w, "pairing not found", http.StatusNotFound)
+				return
+			}
+			logger.Error("component=web msg=\"delete pairing\" id=%d err=%q", id, err)
+			http.Error(w, "failed to delete pairing", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+
+	case http.MethodPatch:
+		var req struct {
+			AutoUpload bool `json:"auto_upload"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if err := s.pairingRepo.SetAutoUpload(id, req.AutoUpload); err != nil {
+			if errors.Is(err, db.ErrPairingNotFound) {
+				http.Error(w, "pairing not found", http.StatusNotFound)
+				return
+			}
+			logger.Error("component=web msg=\"patch pairing auto_upload\" id=%d err=%q", id, err)
+			http.Error(w, "failed to update pairing", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 // ---------- System ------------------------------------------------------------
@@ -762,10 +999,17 @@ func (s *Server) handleRestart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	// Minimal hardening: only allow restarts from localhost and only when not behind a proxy.
-	if r.Header.Get("Forwarded") != "" || r.Header.Get("X-Forwarded-For") != "" || r.Header.Get("X-Real-IP") != "" {
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
+	// Hardening: refuse requests that carry any proxy or forwarding header.
+	// This prevents an attacker behind a reverse proxy from triggering a restart
+	// by spoofing RemoteAddr.
+	for _, h := range []string{
+		"Forwarded", "X-Forwarded-For", "X-Real-IP",
+		"CF-Connecting-IP", "True-Client-IP", "X-Forwarded-Host",
+	} {
+		if r.Header.Get(h) != "" {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 	}
 	if !strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") && !strings.HasPrefix(r.RemoteAddr, "[::1]:") {
 		http.Error(w, "forbidden", http.StatusForbidden)
@@ -788,7 +1032,7 @@ func (s *Server) handleRestart(w http.ResponseWriter, r *http.Request) {
 func entriesToImages(entries []store.Entry) []canon.Image {
 	imgs := make([]canon.Image, len(entries))
 	for i, e := range entries {
-		imgs[i] = canon.Image{Filename: e.Filename, URL: e.URL}
+		imgs[i] = canon.Image{Filename: e.Filename, URL: e.URL, CameraFolder: e.CameraFolder}
 	}
 	return imgs
 }

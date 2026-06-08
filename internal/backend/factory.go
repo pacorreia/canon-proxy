@@ -59,7 +59,6 @@ func NewFromSettings(m map[string]string) (Backend, error) {
 			Share:    get("smb.share", ""),
 			Username: get("smb.username", ""),
 			Password: get("smb.password", ""),
-			Path:     get("smb.path", "/"),
 		}), nil
 	case "ftp":
 		return NewFTPBackend(config.FTPConfig{

@@ -48,6 +48,7 @@ func main() {
 
 	imageRepo := db.NewImageRepo(gdb)
 	settingRepo := db.NewSettingRepo(gdb)
+	pairingRepo := db.NewFolderPairingRepo(gdb)
 
 	// Check if camera settings already exist in the database before seeding.
 	// Used below to warn when config.yaml provides camera settings that will be ignored.
@@ -117,6 +118,14 @@ func main() {
 	workers := getInt(appSettings, "upload.workers", cfg.Upload.Workers, 1)
 	deleteAfterUpload := getBool(appSettings, "camera.delete_after_upload", false)
 
+	// Restore persisted poll enabled/disabled state.
+	if poller != nil {
+		pollEnabled := getBool(appSettings, "camera.poll_enabled", true)
+		if !pollEnabled {
+			poller.SetEnabled(false)
+		}
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -128,7 +137,7 @@ func main() {
 	st.ResetStuckUploading()
 
 	// Build pipeline.
-	p := pipeline.NewManual(client, poller, uploadBackend, workers, st, deleteAfterUpload)
+	p := pipeline.NewManual(client, poller, uploadBackend, workers, st, pairingRepo, deleteAfterUpload)
 
 	// Enqueue all previously-queued images on startup (e.g. after a restart).
 	freshQueued := st.AllFreshQueued()
@@ -136,21 +145,72 @@ func main() {
 		logger.Info("msg=\"re-enqueuing previously queued images\" count=%d", len(freshQueued))
 		imgs := make([]canon.Image, len(freshQueued))
 		for i, e := range freshQueued {
-			imgs[i] = canon.Image{Filename: e.Filename, URL: e.URL}
+			imgs[i] = canon.Image{Filename: e.Filename, URL: e.URL, CameraFolder: e.CameraFolder}
 		}
 		p.Queue(imgs)
 	}
 
-	// thumbFunc and downloadFunc are only set when a camera client is available.
-	// The web server handles nil values gracefully (returns 501 Not Implemented).
+	// Sync discovered images for auto-upload pairings.
+	// Covers the case where the server was interrupted after an image was discovered
+	// but before the auto-queue step ran (e.g. crash between store.Add and MarkQueuedWithMeta).
+	// On restart the poller's seen-map is empty so all camera images will be re-emitted,
+	// but store.Add only returns created=true for brand-new images — already-known
+	// discovered images won't trigger the auto-queue in the discovery goroutine.
+	if pairingRepo != nil {
+		allPairings, _ := pairingRepo.List()
+		autoFolders := make(map[string]string) // camera_folder → share_path
+		for _, pr := range allPairings {
+			if pr.AutoUpload {
+				autoFolders[pr.CameraFolder] = pr.SharePath
+			}
+		}
+		if len(autoFolders) > 0 {
+			all := st.List()
+			byFolder := make(map[string][]store.Entry)
+			for _, e := range all {
+				if e.Status == store.StatusDiscovered && e.CameraFolder != "" {
+					if _, ok := autoFolders[e.CameraFolder]; ok {
+						byFolder[e.CameraFolder] = append(byFolder[e.CameraFolder], e)
+					}
+				}
+			}
+			for folder, entries := range byFolder {
+				sharePath := autoFolders[folder]
+				urls := make([]string, len(entries))
+				imgs := make([]canon.Image, len(entries))
+				for i, e := range entries {
+					urls[i] = e.URL
+					imgs[i] = canon.Image{Filename: e.Filename, URL: e.URL, CameraFolder: e.CameraFolder}
+				}
+				logger.Info("msg=\"startup sync: queuing auto-upload discovered images\" folder=%q dest=%q count=%d", folder, sharePath, len(entries))
+				st.MarkQueuedWithMeta(urls, sharePath, "auto")
+				p.Queue(imgs)
+			}
+		}
+	}
+
+	// thumbFunc, downloadFunc, and listFoldersFunc are only set when a camera client is available.
+	// The web server handles nil values gracefully (returns 501/503 Not Implemented).
 	var thumbFunc web.ThumbFunc
 	var downloadFunc web.DownloadFunc
+	var listFoldersFunc web.ListFoldersFunc
 	if client != nil {
 		thumbFunc = func(ctx context.Context, imageURL string) (io.ReadCloser, error) {
 			return client.GetThumb(ctx, imageURL)
 		}
 		downloadFunc = func(ctx context.Context, image canon.Image) (io.ReadCloser, error) {
 			return client.DownloadImage(ctx, image)
+		}
+		listFoldersFunc = func(ctx context.Context) ([]canon.CameraFolder, error) {
+			return client.ListFolders(ctx)
+		}
+	}
+
+	// shareFoldersFunc is set when the backend supports directory enumeration.
+	var shareFoldersFunc web.ShareFoldersFunc
+	if fl, ok := uploadBackend.(backend.FolderLister); ok {
+		shareFoldersFunc = func(ctx context.Context, p string) ([]string, error) {
+			return fl.ListFolders(ctx, p)
 		}
 	}
 
@@ -169,16 +229,31 @@ func main() {
 		}
 	}
 
-	srv := web.New(st, thumbFunc, downloadFunc, p.Queue, cfg.Web.Listen, web.QueueController{
-		Pause:    p.Pause,
-		Resume:   p.Resume,
-		Clear:    func() { p.ClearQueue() },
-		IsPaused: p.IsPaused,
-	}, settingRepo, restartFunc, initLogBroadcaster(), func(kv map[string]string) {
-		if v, ok := kv["log.level"]; ok {
-			logger.SetLevel(v)
-			logger.Info("msg=\"log level changed\" level=%q", v)
-		}
+	srv := web.New(web.ServerConfig{
+		Store:           st,
+		ThumbFunc:       thumbFunc,
+		DownloadFunc:    downloadFunc,
+		ListFoldersFunc: listFoldersFunc,
+		ShareFoldersFunc: shareFoldersFunc,
+		Queue:           p.Queue,
+		Listen:          cfg.Web.Listen,
+		QueueCtrl: web.QueueController{
+			Pause:    p.Pause,
+			Resume:   p.Resume,
+			Clear:    func() { p.ClearQueue() },
+			IsPaused: p.IsPaused,
+		},
+		SettingRepo: settingRepo,
+		PairingRepo: pairingRepo,
+		RestartFunc: restartFunc,
+		LogBcast:    initLogBroadcaster(),
+		Poller:      poller,
+		OnSettingsChanged: func(kv map[string]string) {
+			if v, ok := kv["log.level"]; ok {
+				logger.SetLevel(v)
+				logger.Info("msg=\"log level changed\" level=%q", v)
+			}
+		},
 	})
 
 	go srv.Start(ctx)
@@ -207,6 +282,7 @@ func seedSettingsFromConfig(repo *db.SettingRepo, cfg *config.Config) {
 		"camera.listen_addr":       cfg.Camera.ListenAddr,
 		"camera.poll_interval":     cfg.Camera.PollInterval.String(),
 		"camera.delete_after_upload": strconv.FormatBool(cfg.Camera.DeleteAfterUpload),
+		"camera.poll_enabled":      "true",
 		"camera.guid":              "cafebabe-dead-beef-0001-63616e6f6e78",
 		"upload.backend":       cfg.Upload.Backend,
 		"upload.workers":       strconv.Itoa(cfg.Upload.Workers),

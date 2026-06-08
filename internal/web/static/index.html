@@ -117,11 +117,12 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
 #selection-bar span{flex:1;font-weight:500}
 
 /* ---- Queue list ---- */
-.queue-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:var(--md-surface-container);border-radius:var(--radius-md)}
-.queue-controls h3{flex:1;font-size:15px;font-weight:500;color:var(--md-on-surface)}
-.progress-bar-wrap{height:4px;border-radius:2px;background:var(--md-surface-variant);overflow:hidden;margin-bottom:4px}
+.queue-controls{display:flex;flex-wrap:nowrap;gap:8px;align-items:center;padding:10px 14px 0;background:var(--md-surface-container);border-radius:var(--radius-md);overflow:hidden;flex-direction:column}
+.queue-controls-row{display:flex;gap:8px;align-items:center;width:100%;padding-bottom:10px}
+.queue-controls h3{flex:1;font-size:15px;font-weight:500;color:var(--md-on-surface);white-space:nowrap}
+.queue-controls-progress{width:100%;height:3px;background:var(--md-surface-variant);overflow:hidden;border-radius:0}
 .progress-bar-fill{height:100%;background:var(--md-primary);transition:width .4s}
-.queue-stats{display:flex;gap:16px;font-size:12px;color:var(--md-on-surface-variant)}
+.queue-stats{display:flex;gap:16px;font-size:12px;color:var(--md-on-surface-variant);padding:6px 14px;background:var(--md-surface-container-low);border-radius:0 0 var(--radius-md) var(--radius-md);margin-top:-1px}
 .queue-stats span{display:flex;align-items:center;gap:4px}
 .queue-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--md-surface-container);border-radius:var(--radius-md);margin-bottom:8px}
 .queue-item__thumb{width:48px;height:36px;border-radius:6px;object-fit:cover;background:var(--md-surface-container-high);flex-shrink:0}
@@ -130,6 +131,33 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
 .queue-item__meta{font-size:11px;color:var(--md-on-surface-variant);margin-top:2px}
 .queue-item__status{flex-shrink:0}
 .section-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--md-on-surface-variant);margin:16px 0 8px}
+/* queue destination sub-groups */
+.queue-dest-group{background:var(--md-surface-container-low);border-radius:var(--radius-md);margin-bottom:12px;overflow:hidden}
+.queue-dest-header{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--md-surface-container-high);border-bottom:1px solid var(--md-outline-variant);cursor:pointer;user-select:none}
+.queue-dest-header svg{width:14px;height:14px;fill:var(--md-on-surface-variant);flex-shrink:0}
+.queue-dest-header__path{flex:1;font-size:12px;font-weight:600;color:var(--md-on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.queue-dest-header__count{font-size:11px;color:var(--md-on-surface-variant);background:var(--md-surface-variant);border-radius:10px;padding:1px 7px}
+.queue-dest-body{padding:8px}
+.queue-item__progress{height:3px;background:var(--md-surface-variant);border-radius:2px;overflow:hidden;margin-top:5px}
+.queue-item__progress-fill{height:100%;background:var(--md-primary);transition:width .4s ease}
+.queue-item__progress-text{font-size:10px;color:var(--md-on-surface-variant);margin-top:2px}
+@keyframes q-indeterminate{0%{transform:translateX(-150%);width:50%}100%{transform:translateX(350%);width:50%}}
+.queue-item__progress-fill--indeterminate{width:50%;animation:q-indeterminate 1.4s ease-in-out infinite}
+.source-badge{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;letter-spacing:.04em;flex-shrink:0}
+.source-badge--auto{background:rgba(var(--md-primary-rgb,.36,.42,.96),.15);color:var(--md-primary)}
+.source-badge--manual{background:rgba(100,100,100,.15);color:var(--md-on-surface-variant)}
+/* upload path modal */
+#upload-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;justify-content:center}
+#upload-modal-overlay.open{display:flex}
+.upload-modal-sheet{background:var(--md-surface-container);border-radius:var(--radius-md) var(--radius-md) 0 0;width:100%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0)}
+.upload-modal-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--md-outline-variant)}
+.upload-modal-header h4{flex:1;margin:0;font-size:15px;font-weight:500}
+.upload-modal-body{flex:1;overflow-y:auto;padding:12px 16px}
+.upload-modal-footer{display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--md-outline-variant)}
+.upload-option-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-sm);cursor:pointer;transition:background .15s}
+.upload-option-row:hover{background:var(--md-surface-variant)}
+.upload-option-row input[type=radio]{accent-color:var(--md-primary)}
+.upload-option-row label{flex:1;font-size:13px;cursor:pointer}
 
 /* ---- Settings ---- */
 .settings-section{background:var(--md-surface-container);border-radius:var(--radius-md);margin-bottom:10px;overflow:hidden}
@@ -148,6 +176,39 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
 .group-header{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:10px 2px 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--md-primary)}
 .group-header::after{content:'';flex:1;height:1px;background:var(--md-outline-variant)}
 /* timeline view */
+/* ---- Pairings ---- */
+#page-pairings{padding:0}
+#page-pairings.active{display:block}
+#pairings-scroll{padding:16px;min-height:100%}
+.pairing-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--md-outline-variant)}
+.pairing-item:last-child{border-bottom:none}
+.pairing-folder{background:var(--md-secondary-container);color:var(--md-on-secondary-container);padding:3px 10px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;font-family:monospace;white-space:nowrap}
+.pairing-arrow{width:18px;height:18px;flex-shrink:0;fill:var(--md-on-surface-variant)}
+.pairing-path{flex:1;font-size:13px;color:var(--md-on-surface);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pairing-del{padding:6px;color:var(--md-error);margin-left:auto;flex-shrink:0}
+.pairing-del svg{width:18px;height:18px;fill:currentColor}
+/* ---- Folder tree pickers ---- */
+.tree-pickers{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 14px}
+.tree-picker-col{display:flex;flex-direction:column;gap:6px;min-width:0}
+.tree-picker-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--md-on-surface-variant);display:flex;align-items:center;justify-content:space-between}
+.tree-picker-box{background:var(--md-surface-container-highest);border:1px solid var(--md-outline-variant);border-radius:var(--radius-sm);overflow-y:auto;max-height:220px;min-height:80px;padding:4px 0}
+.tn{display:flex;flex-direction:column}
+.tn__row{display:flex;align-items:center;gap:3px;padding:4px 8px;cursor:pointer;border-radius:6px;margin:1px 4px;user-select:none;transition:background .1s}
+.tn__row:hover{background:rgba(255,255,255,.07)}
+.tn__row.selected{background:var(--md-primary-container);color:var(--md-on-primary-container)}
+.tn__chevron{width:16px;height:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s;cursor:pointer;border-radius:3px;color:var(--md-on-surface-variant)}
+.tn__chevron.ghost{visibility:hidden}
+.tn__chevron:not(.ghost):hover{background:rgba(255,255,255,.1)}
+.tn__chevron.open{transform:rotate(90deg)}
+.tn__chevron svg{width:12px;height:12px;fill:currentColor}
+.tn__icon{width:14px;height:14px;flex-shrink:0;fill:var(--md-secondary-container)}
+.tn__name{font-size:12px;font-family:monospace;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tn__children{padding-left:16px;display:none}
+.tn__children.open{display:block}
+.tn__spinner{width:12px;height:12px;border:2px solid var(--md-outline-variant);border-top-color:var(--md-primary);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+.pairing-sel-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--md-outline-variant);flex-wrap:wrap}
+.pairing-sel-tag{background:var(--md-secondary-container);color:var(--md-on-secondary-container);padding:2px 8px;border-radius:var(--radius-sm);font-family:monospace;font-size:11px;font-weight:600;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.pairing-sel-none{color:var(--md-on-surface-variant);font-size:12px;font-style:italic}
 #timeline{display:none;flex-direction:column;padding:8px 0 24px}
 #timeline.open{display:flex}
 .tl-day{display:flex;flex-direction:column;position:relative;padding-left:28px;margin-bottom:0}
@@ -244,6 +305,7 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
   <header id="appbar">
     <h1>Canon Proxy</h1>
     <div class="appbar-chip" id="conn-chip"><span class="dot"></span><span id="conn-label">Connecting…</span></div>
+    <div class="appbar-chip" id="cam-chip"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor;flex-shrink:0"><path d="M9 3L7.17 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.17L15 3H9m3 4a5 5 0 1 1 0 10A5 5 0 0 1 12 7m0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6"/></svg><span id="cam-label">Camera…</span></div>
   </header>
 
   <!-- Pages -->
@@ -259,13 +321,17 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
         <button class="chip" data-filter="failed">Failed <span class="badge" id="cnt-failed">0</span></button>
         <div style="flex:1"></div>
         <div class="view-toggle" id="view-toggle">
-          <button data-view="flat" class="active" title="Flat grid">Grid</button>
+          <button data-view="flat" title="Flat grid">Grid</button>
+          <button data-view="folder" class="active" title="Group by camera folder">By Folder</button>
           <button data-view="date" title="Group by date">By Date</button>
           <button data-view="timeline" title="Timeline">Timeline</button>
         </div>
         <button class="btn btn-tonal" id="btn-queue-all" style="padding:6px 14px;font-size:13px">
           <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2m1 5v5h4l-5 5-5-5h4V7z"/></svg>
           Queue All
+        </button>
+        <button class="btn btn-text" id="btn-refresh-now" title="Refresh now" style="padding:6px;min-width:0;margin-left:4px">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4C7.58 4 4 7.58 4 12s3.58 8 8 8 8-3.58 8-8h-2c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L11 13h7V6l-2.35 2.35z"/></svg>
         </button>
       </div>
       <div id="selection-bar">
@@ -292,16 +358,18 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
     <!-- ====== QUEUE ====== -->
     <div class="page" id="page-queue">
       <div class="queue-controls">
-        <h3>Upload Queue</h3>
-        <button class="btn btn-tonal" id="btn-pause" style="padding:7px 14px;font-size:13px">
-          <svg viewBox="0 0 24 24" id="pause-icon"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
-          <span id="pause-label">Pause</span>
-        </button>
-        <button class="btn btn-outlined" id="btn-retry-failed" style="padding:7px 14px;font-size:13px">Retry Failed</button>
-        <button class="btn btn-text" id="btn-clear-queue" style="padding:7px 14px;font-size:13px">Clear</button>
-      </div>
-      <div class="progress-bar-wrap" style="margin-top:4px">
-        <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+        <div class="queue-controls-row">
+          <h3>Upload Queue</h3>
+          <button class="btn btn-tonal" id="btn-pause" style="padding:7px 14px;font-size:13px">
+            <svg viewBox="0 0 24 24" id="pause-icon"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
+            <span id="pause-label">Pause</span>
+          </button>
+          <button class="btn btn-outlined" id="btn-retry-failed" style="padding:7px 14px;font-size:13px">Retry</button>
+          <button class="btn btn-text" id="btn-clear-queue" style="padding:7px 14px;font-size:13px">Clear</button>
+        </div>
+        <div class="queue-controls-progress">
+          <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+        </div>
       </div>
       <div class="queue-stats" id="queue-stats"></div>
       <div id="queue-list"></div>
@@ -316,7 +384,7 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
         <div class="setting-row"><label>Host</label><input id="s-camera-host" placeholder="192.168.2.159"></div>
         <div class="setting-row"><label>Port</label><input id="s-camera-port" type="number" placeholder="15740"></div>
         <div class="setting-row"><label>Listen Addr</label><input id="s-camera-listen" placeholder=":15740 (server mode)"></div>
-        <div class="setting-row"><label>Poll Interval</label><input id="s-camera-poll" placeholder="5s"></div>
+
         <div class="setting-row"><label>Pairing GUID</label><input id="s-camera-guid" placeholder="cafebabe-dead-beef-0001-63616e6f6e78" title="16-byte UUID sent to the camera during PTP/IP pairing"></div>
         <div class="setting-row">
           <label>Delete After Upload</label>
@@ -330,6 +398,27 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/><path d="M15 3.5A6.5 6.5 0 0 1 21.5 10H23a8 8 0 0 0-8-8v1.5zm0 3A3.5 3.5 0 0 1 18.5 10H20a5 5 0 0 0-5-5v1.5zM9 3.5V2a8 8 0 0 0-8 8h1.5A6.5 6.5 0 0 1 9 3.5z"/></svg>
             Detect Cameras on LAN
           </button>
+        </div>
+      </div>
+      <!-- Camera Polling -->
+      <div class="settings-section">
+        <h3>Camera Polling</h3>
+        <div class="setting-row">
+          <label>Auto-refresh</label>
+          <button class="btn btn-text" id="btn-autorefresh-toggle" style="padding:4px 10px;font-size:13px;gap:6px">
+            <svg id="autorefresh-icon" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+            <span id="autorefresh-label">Auto</span>
+          </button>
+        </div>
+        <div class="setting-row">
+          <label>Interval</label>
+          <select id="autorefresh-interval" style="background:var(--md-surface-container-highest);color:var(--md-on-surface);border:1px solid var(--md-outline-variant);border-radius:6px;padding:5px 8px;font-size:13px">
+            <option value="5">5 seconds</option>
+            <option value="10" selected>10 seconds</option>
+            <option value="30">30 seconds</option>
+            <option value="60">1 minute</option>
+            <option value="300">5 minutes</option>
+          </select>
         </div>
       </div>
       <!-- Upload + backend config in one card -->
@@ -353,7 +442,6 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
           <div class="setting-row"><label>Share</label><input id="s-smb-share" placeholder="downloads"></div>
           <div class="setting-row"><label>Username</label><input id="s-smb-user" placeholder="user"></div>
           <div class="setting-row"><label>Password</label><input id="s-smb-pass" type="password" placeholder="••••••••"></div>
-          <div class="setting-row"><label>Path</label><input id="s-smb-path" placeholder="/photos"></div>
         </div>
         <!-- FTP -->
         <div class="backend-rows" id="br-ftp">
@@ -411,6 +499,60 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
       </div>
       </div><!-- /#settings-scroll -->
     </div>
+
+    <!-- ====== PAIRINGS ====== -->
+    <div class="page" id="page-pairings">
+      <div id="pairings-scroll">
+      <div class="settings-section">
+        <div style="padding:10px 14px 8px;border-bottom:1px solid var(--md-outline-variant)">
+          <h3 style="margin:0;padding:0;border:none;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--md-primary)">Folder Pairings</h3>
+        </div>
+        <div id="pairing-list"></div>
+      </div>
+      <div class="settings-section">
+        <h3>Add Pairing</h3>
+        <div class="tree-pickers">
+          <!-- Camera folder tree -->
+          <div class="tree-picker-col">
+            <div class="tree-picker-label">
+              Camera Folder
+              <button class="btn btn-text" id="btn-refresh-cam-tree" style="padding:3px 8px;font-size:11px">
+                <svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 0 0-8 8 8 8 0 0 0 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 0 1-6-6 6 6 0 0 1 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                Refresh
+              </button>
+            </div>
+            <div class="tree-picker-box" id="camera-tree-box">
+              <div style="padding:20px;text-align:center;color:var(--md-on-surface-variant);font-size:12px">Click Refresh to load camera folders</div>
+            </div>
+          </div>
+          <!-- Share destination tree -->
+          <div class="tree-picker-col">
+            <div class="tree-picker-label">
+              Share Destination
+              <button class="btn btn-text" id="btn-refresh-share-tree" style="padding:3px 8px;font-size:11px">
+                <svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 0 0-8 8 8 8 0 0 0 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 0 1-6-6 6 6 0 0 1 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                Refresh
+              </button>
+            </div>
+            <div class="tree-picker-box" id="share-tree-box">
+              <div style="padding:20px;text-align:center;color:var(--md-on-surface-variant);font-size:12px">Click Refresh to browse share folders</div>
+            </div>
+          </div>
+        </div>
+        <!-- Selection summary + add button -->
+        <div class="pairing-sel-bar">
+          <span id="cam-sel-display" class="pairing-sel-none">No camera folder selected</span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:var(--md-on-surface-variant);flex-shrink:0"><path d="M16.01 11H4v2h12.01v3L20 12l-3.99-4z"/></svg>
+          <span id="share-sel-display" class="pairing-sel-none">No destination selected</span>
+          <div style="flex:1;min-width:8px"></div>
+          <button class="btn btn-filled" id="btn-add-pairing" disabled style="padding:8px 16px;font-size:13px">
+            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            Add Pairing
+          </button>
+        </div>
+      </div>
+      </div><!-- /#pairings-scroll -->
+    </div>
   </div>
 
   <!-- Bottom Nav -->
@@ -427,6 +569,12 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
       </span>
       Queue
     </button>
+    <button class="nav-item" data-page="pairings">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.06 15.94 0 13.36 0c-1.46 0-2.75.68-3.58 1.73L10 1.83l-.78-.1C8.39.68 7.1 0 5.64 0 3.06 0 1 2.06 1 4.64c0 .48.1.92.18 1.36H1c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8.36-3.64c.55-.66 1.35-1.08 2.19-1.08C15.39 1.28 17 2.89 17 4.89c0 .49-.1.95-.27 1.37-.27.72-.76 1.33-1.38 1.74H8.65c-.62-.41-1.11-1.02-1.38-1.74C7.1 5.84 7 5.38 7 4.89c0-2 1.61-3.61 3.61-3.61.84 0 1.64.42 2.03 1.08zM20 20H2V8h18v12z"/></svg>
+      </span>
+      Pairings
+    </button>
     <button class="nav-item" data-page="settings">
       <span class="nav-icon">
         <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54a7.4 7.4 0 0 0-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.47.47 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54a7.4 7.4 0 0 0 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 0 1 8.4 12 3.6 3.6 0 0 1 12 8.4a3.6 3.6 0 0 1 3.6 3.6 3.6 3.6 0 0 1-3.6 3.6z"/></svg>
@@ -434,6 +582,54 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
       Settings
     </button>
   </nav>
+</div>
+
+<!-- Upload path picker modal -->
+<div id="upload-modal-overlay">
+  <div class="upload-modal-sheet">
+    <div class="upload-modal-header">
+      <h4>Choose Upload Destination</h4>
+      <button class="btn btn-text" id="upload-modal-close" style="padding:4px;min-width:0">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div class="upload-modal-body">
+      <div class="upload-option-row" id="upload-opt-paired" style="display:none">
+        <input type="radio" name="upload-dest" id="upload-radio-paired" value="paired" checked>
+        <label for="upload-radio-paired">
+          <strong>Use paired folder</strong>
+          <div style="font-size:11px;color:var(--md-on-surface-variant);margin-top:2px" id="upload-paired-desc">Upload to the destination configured by the folder pairing</div>
+        </label>
+      </div>
+      <div class="upload-option-row">
+        <input type="radio" name="upload-dest" id="upload-radio-custom" value="custom">
+        <label for="upload-radio-custom">
+          <strong>Pick a folder on the share</strong>
+          <div style="font-size:11px;color:var(--md-on-surface-variant);margin-top:2px">Browse and select a custom destination folder</div>
+        </label>
+      </div>
+      <div id="upload-share-tree-wrap" style="display:none;margin-top:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:12px;color:var(--md-on-surface-variant)">Selected:</span>
+          <span id="upload-tree-sel-label" style="font-size:12px;font-weight:600;color:var(--md-primary);flex:1">None</span>
+          <button class="btn btn-text" id="upload-tree-refresh" style="padding:3px 8px;font-size:11px">
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 0 0-8 8 8 8 0 0 0 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 0 1-6-6 6 6 0 0 1 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            Refresh
+          </button>
+        </div>
+        <div class="tree-picker-box" id="upload-share-tree-box" style="max-height:220px">
+          <div style="padding:20px;text-align:center;color:var(--md-on-surface-variant);font-size:12px">Click Refresh to browse share folders</div>
+        </div>
+      </div>
+    </div>
+    <div class="upload-modal-footer">
+      <button class="btn btn-text" id="upload-modal-cancel">Cancel</button>
+      <button class="btn btn-filled" id="upload-modal-confirm" disabled>
+        <svg viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        Queue
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- Camera pairing wizard -->
@@ -489,10 +685,12 @@ html,body{height:100%;background:var(--md-background);color:var(--md-on-backgrou
 // ============================================================
 let images = [];          // [{filename, url, status, retry_count, error, detected_at, next_retry_at}]
 let activeFilter = 'all';
-let activeView = 'flat'; // 'flat' | 'date' | 'timeline'
+let activeView = 'folder'; // 'flat' | 'folder' | 'date' | 'timeline'
 let selectedFiles = new Set();
 let settings = {};
 let isPaused = false;
+let autoRefreshEnabled = true;
+let autoRefreshIntervalSec = 10;
 
 // ============================================================
 //  Navigation
@@ -506,20 +704,32 @@ navItems.forEach(btn => {
     navItems.forEach(n => n.classList.toggle('active', n.dataset.page === p));
     pages.forEach(pg => pg.classList.toggle('active', pg.id === 'page-' + p));
     if (p === 'queue') renderQueuePage();
-    if (p === 'settings') loadSettings();
+    if (p === 'settings') { loadSettings(); loadPollSettings(); }
+    if (p === 'pairings') loadPairings();
   });
 });
 
 // ============================================================
-//  SSE + Data Fetching
+//  WebSocket + Data Fetching
 // ============================================================
-let sseConnected = false;
+let wsReconnectTimer = null;
 
-function connectSSE() {
-  const es = new EventSource('/api/events');
-  es.addEventListener('update', () => fetchImages());
-  es.onopen = () => { sseConnected = true; updateConnChip(true); };
-  es.onerror = () => { sseConnected = false; updateConnChip(false); };
+function connectWS() {
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${proto}//${location.host}/api/events`);
+  ws.onopen = () => { updateConnChip(true); };
+  ws.onerror = () => ws.close();
+  ws.onclose = () => {
+    updateConnChip(false);
+    wsReconnectTimer = setTimeout(connectWS, 3000);
+  };
+  ws.onmessage = (e) => {
+    try { images = JSON.parse(e.data); } catch (_) { return; }
+    try { renderLibrary(); } catch (_) {}
+    try { renderQueuePage(); } catch (_) {}
+    fetchQueueStatus();
+  };
 }
 
 function updateConnChip(online) {
@@ -547,6 +757,12 @@ async function fetchQueueStatus() {
     const data = await res.json();
     isPaused = data.paused;
     updatePauseBtn();
+    const camChip = document.getElementById('cam-chip');
+    const camLabel = document.getElementById('cam-label');
+    if (camChip && camLabel) {
+      camChip.classList.toggle('online', !!data.camera_connected);
+      camLabel.textContent = data.camera_connected ? 'Camera' : 'No camera';
+    }
   } catch(e) {}
 }
 
@@ -554,6 +770,7 @@ async function fetchQueueStatus() {
 //  Library Page
 // ============================================================
 function renderLibrary() {
+  if (!document.getElementById('page-library').classList.contains('active')) return;
   const grid = document.getElementById('card-grid');
   const tlEl = document.getElementById('timeline');
   const empty = document.getElementById('library-empty');
@@ -566,11 +783,6 @@ function renderLibrary() {
     if (el) el.textContent = counts[k]||0;
   });
 
-  // Progress bar
-  const total = images.length;
-  const done = counts.done || 0;
-  document.getElementById('progress-fill').style.width = total > 0 ? (done/total*100)+'%' : '0%';
-
   const visibleImages = activeFilter === 'all' ? images : images.filter(i => i.status === activeFilter);
 
   if (activeView === 'timeline') {
@@ -582,7 +794,7 @@ function renderLibrary() {
     return;
   }
 
-  // grid is visible for flat/date views
+  // grid is visible for flat/folder/date views
   grid.style.display = '';
   tlEl.classList.remove('open');
   tlEl.innerHTML = '';
@@ -606,6 +818,28 @@ function renderLibrary() {
     existing.forEach(c => {
       if (activeFilter !== 'all') { c.classList.add('hidden'); }
       else { c.remove(); }
+    });
+  } else if (activeView === 'folder') {
+    // By-camera-folder grouping (default)
+    grid.innerHTML = '';
+    // Sort: folders alphabetically, then by filename within each folder
+    const sorted = [...visibleImages].sort((a, b) => {
+      const fa = a.camera_folder || '';
+      const fb = b.camera_folder || '';
+      if (fa !== fb) return fa.localeCompare(fb);
+      return a.filename.localeCompare(b.filename);
+    });
+    let lastFolder = undefined;
+    sorted.forEach(img => {
+      const folder = img.camera_folder || '';
+      if (folder !== lastFolder) {
+        lastFolder = folder;
+        const hdr = document.createElement('div');
+        hdr.className = 'group-header';
+        hdr.textContent = folder || 'Unassigned';
+        grid.appendChild(hdr);
+      }
+      grid.appendChild(buildCard(img));
     });
   } else {
     // By-date grouping
@@ -982,22 +1216,152 @@ async function downloadSelected() {
 
 document.getElementById('btn-download-selected').addEventListener('click', downloadSelected);
 
-document.getElementById('btn-queue-selected').addEventListener('click', async () => {
-  if (selectedFiles.size === 0) return;
-  const filenames = [...selectedFiles];
+// Upload modal state
+let uploadModalFilenames = [];
+let uploadModalSelectedPath = '';
+
+function openUploadModal(filenames) {
+  uploadModalFilenames = filenames;
+  uploadModalSelectedPath = '';
+  document.getElementById('upload-modal-overlay').classList.add('open');
+
+  // Detect if any selected images have pairings (use first one's camera_folder)
+  const img = images.find(i => filenames.includes(i.filename) && i.camera_folder);
+  const pairing = img && pairings.find(p => p.CameraFolder === img.camera_folder);
+  const pairedRow = document.getElementById('upload-opt-paired');
+  if (pairing) {
+    document.getElementById('upload-paired-desc').textContent = `→ ${pairing.SharePath}`;
+    pairedRow.style.display = '';
+    document.getElementById('upload-radio-paired').checked = true;
+  } else {
+    pairedRow.style.display = 'none';
+    document.getElementById('upload-radio-custom').checked = true;
+  }
+  updateUploadModalConfirm();
+  toggleUploadTreeVisibility();
+}
+
+function toggleUploadTreeVisibility() {
+  const custom = document.getElementById('upload-radio-custom').checked;
+  document.getElementById('upload-share-tree-wrap').style.display = custom ? '' : 'none';
+  updateUploadModalConfirm();
+}
+
+function updateUploadModalConfirm() {
+  const custom = document.getElementById('upload-radio-custom').checked;
+  const ok = !custom || uploadModalSelectedPath !== '';
+  document.getElementById('upload-modal-confirm').disabled = !ok;
+}
+
+document.querySelectorAll('input[name="upload-dest"]').forEach(r => {
+  r.addEventListener('change', () => { toggleUploadTreeVisibility(); });
+});
+
+document.getElementById('upload-modal-close').addEventListener('click', () => {
+  document.getElementById('upload-modal-overlay').classList.remove('open');
+});
+document.getElementById('upload-modal-cancel').addEventListener('click', () => {
+  document.getElementById('upload-modal-overlay').classList.remove('open');
+});
+
+document.getElementById('upload-tree-refresh').addEventListener('click', async () => {
+  await loadUploadShareTree();
+});
+
+async function loadUploadShareTree() {
+  const box = document.getElementById('upload-share-tree-box');
+  box.innerHTML = `<div style="padding:16px;display:flex;align-items:center;justify-content:center;gap:8px"><span class="tn__spinner"></span><span style="font-size:12px;color:var(--md-on-surface-variant)">Loading…</span></div>`;
+  uploadModalSelectedPath = '';
+  document.getElementById('upload-tree-sel-label').textContent = 'None';
+  updateUploadModalConfirm();
   try {
+    const res = await fetch('/api/share/folders?path=/');
+    if (!res.ok) { box.innerHTML = '<div style="padding:12px;text-align:center;color:var(--md-error);font-size:12px">Failed to load share folders</div>'; return; }
+    const data = await res.json();
+    renderUploadShareTree(box, data.folders || [], '/');
+  } catch(e) {
+    box.innerHTML = '<div style="padding:12px;text-align:center;color:var(--md-error);font-size:12px">Error loading share folders</div>';
+  }
+}
+
+function renderUploadShareTree(container, folders, basePath) {
+  container.innerHTML = '';
+  if (!folders || folders.length === 0) {
+    container.innerHTML = '<div style="padding:12px;text-align:center;color:var(--md-on-surface-variant);font-size:12px">No folders found</div>';
+    return;
+  }
+  folders.forEach(name => {
+    const fullPath = (basePath === '/' ? '' : basePath) + '/' + name;
+    const node = document.createElement('div');
+    node.className = 'tn';
+    const row = document.createElement('div');
+    row.className = 'tn__row';
+    row.dataset.path = fullPath;
+    row.innerHTML = `<span class="tn__chevron">${CHEVRON_SVG}</span>${FOLDER_SVG}<span class="tn__name">${escHtml(name)}</span>`;
+    // Click: select this folder
+    row.addEventListener('click', async e => {
+      e.stopPropagation();
+      container.querySelectorAll('.tn__row').forEach(r => r.classList.remove('selected'));
+      row.classList.add('selected');
+      uploadModalSelectedPath = fullPath;
+      document.getElementById('upload-tree-sel-label').textContent = fullPath;
+      updateUploadModalConfirm();
+      // Expand children
+      let childWrap = node.querySelector('.tn__children');
+      if (!childWrap) {
+        const chevron = row.querySelector('.tn__chevron');
+        chevron.classList.add('open');
+        childWrap = document.createElement('div');
+        childWrap.className = 'tn__children open';
+        node.appendChild(childWrap);
+        try {
+          const res = await fetch('/api/share/folders?path=' + encodeURIComponent(fullPath));
+          if (res.ok) {
+            const data = await res.json();
+            renderUploadShareTree(childWrap, data.folders || [], fullPath);
+          }
+        } catch(_) {}
+      } else {
+        childWrap.classList.toggle('open');
+        row.querySelector('.tn__chevron').classList.toggle('open');
+      }
+    });
+    node.appendChild(row);
+    container.appendChild(node);
+  });
+}
+
+document.getElementById('upload-modal-confirm').addEventListener('click', async () => {
+  const custom = document.getElementById('upload-radio-custom').checked;
+  const pairing = !custom;
+  let destPath = '';
+  if (custom) {
+    destPath = uploadModalSelectedPath;
+  }
+  // Close modal
+  document.getElementById('upload-modal-overlay').classList.remove('open');
+  try {
+    const body = {filenames: uploadModalFilenames, upload_source: 'manual'};
+    if (destPath) body.dest_path = destPath;
     const res = await fetch('/api/images/queue', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({filenames})
+      body: JSON.stringify(body)
     });
     if (res.ok || res.status === 204) {
-      toast('Queued ' + filenames.length + ' image(s)');
+      toast('Queued ' + uploadModalFilenames.length + ' image(s)');
       selectedFiles.clear();
       updateSelectionBar();
       fetchImages();
+    } else {
+      toast('Error queuing images');
     }
   } catch(e) { toast('Error queuing images'); }
+});
+
+document.getElementById('btn-queue-selected').addEventListener('click', () => {
+  if (selectedFiles.size === 0) return;
+  openUploadModal([...selectedFiles]);
 });
 
 document.getElementById('btn-queue-all').addEventListener('click', async () => {
@@ -1011,9 +1375,37 @@ document.getElementById('btn-queue-all').addEventListener('click', async () => {
   } catch(e) { toast('Error queuing images'); }
 });
 
+function fmtBytes(b) {
+  if (!b) return '0 B';
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
 // ============================================================
 //  Queue Page
 // ============================================================
+// Tracks which dest-groups are expanded; persists across re-renders.
+const expandedQueueGroups = new Set();
+
+// Toggle handler wired via event delegation (below renderQueuePage).
+function _queueGroupToggle(header) {
+  const group = header.closest('.queue-dest-group');
+  const key = group.dataset.gkey;
+  const body = header.nextElementSibling;
+  const chevron = header.querySelector('.queue-dest-chevron');
+  const isOpen = body.style.display !== 'none';
+  if (isOpen) {
+    body.style.display = 'none';
+    chevron.style.transform = '';
+    expandedQueueGroups.delete(key);
+  } else {
+    body.style.display = '';
+    chevron.style.transform = 'rotate(90deg)';
+    expandedQueueGroups.add(key);
+  }
+}
+
 function renderQueuePage() {
   if (!document.getElementById('page-queue').classList.contains('active')) return;
 
@@ -1033,33 +1425,84 @@ function renderQueuePage() {
   const queued = (grouped.queued||[]).length;
   const failed = (grouped.failed||[]).length;
 
+  // Update progress bar
+  document.getElementById('progress-fill').style.width = total > 0 ? (done/total*100)+'%' : '0%';
+
   statsEl.innerHTML = `
     <span>📤 Uploading: <b>${uploading}</b></span>
     <span>⏳ Queued: <b>${queued}</b></span>
     <span>✅ Done: <b>${done}</b></span>
     <span>❌ Failed: <b>${failed}</b></span>`;
 
-  let html = '';
-  if (uploading + queued + failed + done === 0) {
-    html = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg><p>Queue is empty. Select images in Library to start uploading.</p></div>';
-  } else {
-    const renderSection = (items, label) => {
-      if (!items.length) return '';
-      let s = `<div class="section-label">${label}</div>`;
-      items.forEach(img => {
+  // Helper: build a source badge HTML string
+  const sourceBadge = src => {
+    if (src === 'auto') return '<span class="source-badge source-badge--auto">Auto</span>';
+    if (src === 'manual') return '<span class="source-badge source-badge--manual">Manual</span>';
+    return '';
+  };
+
+  // Helper: resolve a display label for the destination
+  const destLabel = img => {
+    if (img.dest_path) return img.dest_path;
+    const pairing = pairings.find(p => p.CameraFolder === img.camera_folder);
+    if (pairing) return pairing.SharePath;
+    return 'Default';
+  };
+
+  // Helper: render a section with sub-grouping by destination.
+  // Groups are collapsed by default; expandedQueueGroups persists user choices.
+  const renderSection = (items, label) => {
+    if (!items.length) return '';
+    const byDest = {};
+    items.forEach(img => {
+      const key = destLabel(img);
+      if (!byDest[key]) byDest[key] = [];
+      byDest[key].push(img);
+    });
+    const destKeys = Object.keys(byDest).sort();
+    let s = `<div class="section-label">${label}</div>`;
+    destKeys.forEach(dest => {
+      const destItems = byDest[dest];
+      const gkey = label + '::' + dest;
+      const isOpen = expandedQueueGroups.has(gkey);
+      const chevronRot = isOpen ? 'rotate(90deg)' : '';
+      const bodyDisplay = isOpen ? '' : 'none';
+      s += `<div class="queue-dest-group" data-gkey="${escHtml(gkey)}">
+        <div class="queue-dest-header">
+          <svg viewBox="0 0 24 24" class="queue-dest-chevron" style="transition:transform .2s;transform:${chevronRot}"><path d="M10 17l5-5-5-5z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+          <span class="queue-dest-header__path">${escHtml(dest)}</span>
+          <span class="queue-dest-header__count">${destItems.length}</span>
+        </div>
+        <div class="queue-dest-body" style="display:${bodyDisplay}">`;
+      destItems.forEach(img => {
         const retry = img.retry_count > 0 ? ` · Attempt ${img.retry_count+1}/4` : '';
         const err = img.error ? `<span style="color:var(--md-error);font-size:10px">${escHtml(img.error.substring(0,80))}</span>` : '';
+        const pct = img.total_bytes > 0 ? Math.min(100, Math.round(img.uploaded_bytes / img.total_bytes * 100)) : -1;
+        const progressHtml = img.status === 'uploading'
+          ? (pct >= 0
+            ? `<div class="queue-item__progress"><div class="queue-item__progress-fill" style="width:${pct}%"></div></div>
+               <div class="queue-item__progress-text">${pct}%&nbsp;&middot;&nbsp;${fmtBytes(img.uploaded_bytes)} / ${fmtBytes(img.total_bytes)}</div>`
+            : `<div class="queue-item__progress"><div class="queue-item__progress-fill queue-item__progress-fill--indeterminate"></div></div>`)
+          : '';
         s += `<div class="queue-item">
           <img class="queue-item__thumb" src="/api/images/${encodeURIComponent(img.filename)}/thumb" onerror="this.style.display='none'" loading="lazy">
           <div class="queue-item__info">
             <div class="queue-item__name">${escHtml(img.filename)}</div>
-            <div class="queue-item__meta">${fmtStatus(img.status)}${retry} ${err}</div>
+            <div class="queue-item__meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${sourceBadge(img.upload_source)}<span>${fmtStatus(img.status)}${retry}</span>${err}</div>
+            ${progressHtml}
           </div>
-          <span class="img-card__status status-${img.status}" style="flex-shrink:0">${fmtStatus(img.status)}</span>
         </div>`;
       });
-      return s;
-    };
+      s += `</div></div>`;
+    });
+    return s;
+  };
+
+  let html = '';
+  if (uploading + queued + failed + done === 0) {
+    html = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg><p>Queue is empty. Select images in Library to start uploading.</p></div>';
+  } else {
     html += renderSection(grouped.uploading, 'Uploading');
     html += renderSection(grouped.queued, 'Queued');
     html += renderSection(grouped.failed, 'Failed');
@@ -1067,6 +1510,12 @@ function renderQueuePage() {
   }
   list.innerHTML = html;
 }
+
+// Event delegation for queue dest-group toggle (replaces inline onclick).
+document.getElementById('queue-list').addEventListener('click', e => {
+  const header = e.target.closest('.queue-dest-header');
+  if (header) _queueGroupToggle(header);
+});
 
 // ============================================================
 //  Queue Controls
@@ -1139,7 +1588,7 @@ function applySettingsToForm(s) {
   set('s-camera-host',   'camera.host', '');
   set('s-camera-port',   'camera.port', '15740');
   set('s-camera-listen', 'camera.listen_addr', '');
-  set('s-camera-poll',   'camera.poll_interval', '5s');
+
   set('s-camera-guid',   'camera.guid', 'cafebabe-dead-beef-0001-63616e6f6e78');
   set('s-camera-delete-after-upload', 'camera.delete_after_upload', 'false');
   set('s-upload-workers','upload.workers', '1');
@@ -1147,7 +1596,6 @@ function applySettingsToForm(s) {
   set('s-smb-host',  'smb.host', '');
   set('s-smb-share', 'smb.share', '');
   set('s-smb-user',  'smb.username', '');
-  set('s-smb-path',  'smb.path', '/');
   set('s-ftp-host',  'ftp.host', '');
   set('s-ftp-port',  'ftp.port', '21');
   set('s-ftp-user',  'ftp.username', '');
@@ -1175,7 +1623,6 @@ function collectSettingsFromForm() {
     'camera.host': get('s-camera-host'),
     'camera.port': get('s-camera-port'),
     'camera.listen_addr': get('s-camera-listen'),
-    'camera.poll_interval': get('s-camera-poll'),
     'camera.guid': get('s-camera-guid'),
     'camera.delete_after_upload': get('s-camera-delete-after-upload'),
     'upload.workers': get('s-upload-workers'),
@@ -1184,7 +1631,6 @@ function collectSettingsFromForm() {
     'smb.share': get('s-smb-share'),
     'smb.username': get('s-smb-user'),
     'smb.password': document.getElementById('s-smb-pass')?.value || '',
-    'smb.path': get('s-smb-path'),
     'ftp.host': get('s-ftp-host'),
     'ftp.port': get('s-ftp-port'),
     'ftp.username': get('s-ftp-user'),
@@ -1441,13 +1887,331 @@ document.getElementById('wizard-overlay').addEventListener('click', e => {
 });
 
 // ============================================================
+//  Pairings Page
+// ============================================================
+let selectedCameraFolder = '';
+let selectedSharePath = '';
+let pairings = [];
+
+const FOLDER_SVG = `<svg class="tn__icon" viewBox="0 0 24 24"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/></svg>`;
+const CHEVRON_SVG = `<svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>`;
+
+function updatePairingState() {
+  const camEl = document.getElementById('cam-sel-display');
+  const shareEl = document.getElementById('share-sel-display');
+  const addBtn = document.getElementById('btn-add-pairing');
+  if (selectedCameraFolder) {
+    camEl.className = 'pairing-sel-tag';
+    camEl.textContent = selectedCameraFolder;
+  } else {
+    camEl.className = 'pairing-sel-none';
+    camEl.textContent = 'No camera folder selected';
+  }
+  if (selectedSharePath) {
+    shareEl.className = 'pairing-sel-tag';
+    shareEl.textContent = selectedSharePath;
+    shareEl.title = selectedSharePath;
+  } else {
+    shareEl.className = 'pairing-sel-none';
+    shareEl.textContent = 'No destination selected';
+    shareEl.title = '';
+  }
+  addBtn.disabled = !(selectedCameraFolder && selectedSharePath);
+}
+
+async function loadPairings() {
+  try {
+    const res = await fetch('/api/pairings');
+    if (!res.ok) return;
+    pairings = await res.json();
+    renderPairings();
+  } catch(e) {}
+}
+
+function renderPairings() {
+  const list = document.getElementById('pairing-list');
+  if (!list) return;
+  if (!pairings || pairings.length === 0) {
+    list.innerHTML = '<div class="empty-state" style="padding:24px 16px"><svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.06 15.94 0 13.36 0c-1.46 0-2.75.68-3.58 1.73L10 1.83l-.78-.1C8.39.68 7.1 0 5.64 0 3.06 0 1 2.06 1 4.64c0 .48.1.92.18 1.36H1c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg><p>No folder pairings configured.<br>Use the form below to map camera folders to share paths.</p></div>';
+    return;
+  }
+  list.innerHTML = '';
+  pairings.forEach(p => {
+    const item = document.createElement('div');
+    item.className = 'pairing-item';
+    const autoLabel = p.AutoUpload ? 'Auto' : 'Manual';
+    const autoCls   = p.AutoUpload ? 'btn-tonal' : 'btn-outlined';
+    const autoTitle = p.AutoUpload
+      ? 'Auto-upload enabled: new images in this folder are queued automatically. Click to disable.'
+      : 'Auto-upload disabled: images must be queued manually. Click to enable.';
+    item.innerHTML = `
+      <span class="pairing-folder">${escHtml(p.CameraFolder)}</span>
+      <svg class="pairing-arrow" viewBox="0 0 24 24"><path d="M16.01 11H4v2h12.01v3L20 12l-3.99-4z"/></svg>
+      <span class="pairing-path" title="${escHtml(p.SharePath)}">${escHtml(p.SharePath)}</span>
+      <button class="btn ${autoCls} pairing-auto-toggle" data-id="${p.ID}" data-auto="${p.AutoUpload ? '1' : '0'}" title="${autoTitle}" style="padding:4px 10px;font-size:11px;flex-shrink:0">${autoLabel}</button>
+      <button class="btn btn-text pairing-del" data-id="${p.ID}" title="Remove pairing">
+        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+      </button>`;
+    item.querySelector('.pairing-auto-toggle').addEventListener('click', async e => {
+      const btn = e.currentTarget;
+      const id = btn.dataset.id;
+      const current = btn.dataset.auto === '1';
+      const newVal = !current;
+      try {
+        const res = await fetch('/api/pairings/' + id, {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({auto_upload: newVal})
+        });
+        if (!res.ok) { toast('Failed to update pairing'); return; }
+        await loadPairings();
+        toast(newVal ? 'Auto-upload enabled' : 'Auto-upload disabled');
+      } catch(_) { toast('Failed to update pairing'); }
+    });
+    item.querySelector('.pairing-del').addEventListener('click', async e => {
+      const id = e.currentTarget.dataset.id;
+      try {
+        const res = await fetch('/api/pairings/' + id, {method: 'DELETE'});
+        if (!res.ok) { toast('Failed to remove pairing'); return; }
+        await loadPairings();
+        toast('Pairing removed');
+      } catch(_) { toast('Failed to remove pairing'); }
+    });
+    list.appendChild(item);
+  });
+}
+
+// ---- Camera folder tree ----
+async function loadCameraTree() {
+  const box = document.getElementById('camera-tree-box');
+  box.innerHTML = `<div style="padding:20px;display:flex;align-items:center;justify-content:center;gap:8px"><span class="tn__spinner"></span><span style="font-size:12px;color:var(--md-on-surface-variant)">Loading…</span></div>`;
+  selectedCameraFolder = '';
+  updatePairingState();
+  try {
+    const res = await fetch('/api/camera/folders');
+    if (!res.ok) {
+      box.innerHTML = '<div style="padding:16px;text-align:center;color:var(--md-error);font-size:12px">Camera not available</div>';
+      return;
+    }
+    const folders = await res.json();
+    box.innerHTML = '';
+    if (!folders || folders.length === 0) {
+      box.innerHTML = '<div style="padding:16px;text-align:center;color:var(--md-on-surface-variant);font-size:12px">No folders on camera</div>';
+      return;
+    }
+    // DCIM root row (non-selectable, starts expanded)
+    const root = document.createElement('div');
+    root.className = 'tn';
+    const rootRow = document.createElement('div');
+    rootRow.className = 'tn__row';
+    const rootChevron = document.createElement('span');
+    rootChevron.className = 'tn__chevron open';
+    rootChevron.innerHTML = CHEVRON_SVG;
+    rootRow.appendChild(rootChevron);
+    rootRow.insertAdjacentHTML('beforeend', FOLDER_SVG + `<span class="tn__name">DCIM</span>`);
+    root.appendChild(rootRow);
+    const rootChildren = document.createElement('div');
+    rootChildren.className = 'tn__children open';
+    folders.forEach(f => {
+      const child = document.createElement('div');
+      child.className = 'tn';
+      const row = document.createElement('div');
+      row.className = 'tn__row';
+      row.dataset.folder = f.name;
+      row.innerHTML = `<span class="tn__chevron ghost">${CHEVRON_SVG}</span>${FOLDER_SVG}<span class="tn__name">${escHtml(f.name)}</span>`;
+      row.addEventListener('click', () => {
+        box.querySelectorAll('.tn__row').forEach(r => r.classList.remove('selected'));
+        row.classList.add('selected');
+        selectedCameraFolder = f.name;
+        updatePairingState();
+      });
+      child.appendChild(row);
+      rootChildren.appendChild(child);
+    });
+    root.appendChild(rootChildren);
+    // Toggle DCIM children on chevron/row click
+    const toggleDCIM = () => {
+      const open = rootChevron.classList.toggle('open');
+      rootChildren.classList.toggle('open', open);
+    };
+    rootChevron.addEventListener('click', e => { e.stopPropagation(); toggleDCIM(); });
+    rootRow.addEventListener('click', toggleDCIM);
+    box.appendChild(root);
+  } catch(e) {
+    box.innerHTML = '<div style="padding:16px;text-align:center;color:var(--md-error);font-size:12px">Error loading camera folders</div>';
+  }
+}
+
+// ---- Share folder tree ----
+async function loadShareTree() {
+  const box = document.getElementById('share-tree-box');
+  box.innerHTML = `<div style="padding:20px;display:flex;align-items:center;justify-content:center;gap:8px"><span class="tn__spinner"></span><span style="font-size:12px;color:var(--md-on-surface-variant)">Loading…</span></div>`;
+  selectedSharePath = '';
+  updatePairingState();
+  try {
+    const rootNode = makeShareNode('/', '/', true);
+    box.innerHTML = '';
+    box.appendChild(rootNode);
+    // Auto-expand root immediately
+    await expandShareNode(rootNode, '/');
+    rootNode.querySelector(':scope > .tn__row > .tn__chevron').classList.add('open');
+    rootNode.querySelector(':scope > .tn__children').classList.add('open');
+  } catch(e) {
+    box.innerHTML = '<div style="padding:16px;text-align:center;color:var(--md-error);font-size:12px">Share not available</div>';
+  }
+}
+
+function makeShareNode(name, fullPath, isRoot) {
+  const node = document.createElement('div');
+  node.className = 'tn';
+  node.dataset.path = fullPath;
+  node.dataset.loaded = 'false';
+  const row = document.createElement('div');
+  row.className = 'tn__row';
+  const chevron = document.createElement('span');
+  chevron.className = 'tn__chevron';
+  chevron.innerHTML = CHEVRON_SVG;
+  row.appendChild(chevron);
+  row.insertAdjacentHTML('beforeend', FOLDER_SVG + `<span class="tn__name">${escHtml(name)}</span>`);
+  node.appendChild(row);
+  const children = document.createElement('div');
+  children.className = 'tn__children';
+  node.appendChild(children);
+  // Click on row selects this path
+  row.addEventListener('click', e => {
+    if (e.target === chevron || chevron.contains(e.target)) return;
+    document.getElementById('share-tree-box').querySelectorAll('.tn__row').forEach(r => r.classList.remove('selected'));
+    row.classList.add('selected');
+    selectedSharePath = fullPath;
+    updatePairingState();
+  });
+  // Click on chevron expands/collapses
+  chevron.addEventListener('click', async e => {
+    e.stopPropagation();
+    const opening = !chevron.classList.contains('open');
+    chevron.classList.toggle('open', opening);
+    children.classList.toggle('open', opening);
+    if (opening && node.dataset.loaded === 'false') {
+      await expandShareNode(node, fullPath);
+    }
+  });
+  return node;
+}
+
+async function expandShareNode(node, fullPath) {
+  const children = node.querySelector(':scope > .tn__children');
+  children.innerHTML = `<div style="padding:4px 8px 6px;display:flex;align-items:center;gap:6px"><span class="tn__spinner"></span><span style="font-size:11px;color:var(--md-on-surface-variant)">Loading…</span></div>`;
+  try {
+    const res = await fetch('/api/share/folders?path=' + encodeURIComponent(fullPath));
+    if (!res.ok) throw new Error('non-ok');
+    const names = await res.json();
+    node.dataset.loaded = 'true';
+    children.innerHTML = '';
+    if (!names || names.length === 0) {
+      children.innerHTML = '<div style="padding:4px 8px 6px;font-size:11px;color:var(--md-on-surface-variant)">Empty</div>';
+      return;
+    }
+    names.forEach(name => {
+      const childPath = fullPath === '/' ? '/' + name : fullPath + '/' + name;
+      children.appendChild(makeShareNode(name, childPath, false));
+    });
+  } catch(_) {
+    node.dataset.loaded = 'false';
+    const chevron = node.querySelector(':scope > .tn__row > .tn__chevron');
+    chevron && chevron.classList.remove('open');
+    children.classList.remove('open');
+    children.innerHTML = '<div style="padding:4px 8px 6px;font-size:11px;color:var(--md-error)">Failed to load</div>';
+  }
+}
+
+document.getElementById('btn-refresh-cam-tree').addEventListener('click', loadCameraTree);
+document.getElementById('btn-refresh-share-tree').addEventListener('click', loadShareTree);
+
+document.getElementById('btn-add-pairing').addEventListener('click', async () => {
+  if (!selectedCameraFolder || !selectedSharePath) return;
+  try {
+    const res = await fetch('/api/pairings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({camera_folder: selectedCameraFolder, share_path: selectedSharePath})
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      toast('Error: ' + txt.trim());
+      return;
+    }
+    selectedCameraFolder = '';
+    selectedSharePath = '';
+    updatePairingState();
+    document.querySelectorAll('#camera-tree-box .tn__row, #share-tree-box .tn__row').forEach(r => r.classList.remove('selected'));
+    await loadPairings();
+    toast('Pairing added');
+  } catch(e) { toast('Failed to add pairing'); }
+});
+
+// ============================================================
 //  Init
 // ============================================================
-connectSSE();
-fetchImages();
+connectWS();
+fetchImages(); // initial load before WebSocket delivers first push
 fetchQueueStatus();
-// Fallback polling in case SSE fails
-setInterval(fetchImages, 10000);
+loadPollSettings();
+// Periodic fallback: refresh UI data every 5 s so the queue and library
+// stay current even if a WebSocket push is missed or the connection drops.
+setInterval(() => { fetchImages(); fetchQueueStatus(); }, 5000);
+// ---- Backend poll controls ----
+function updateAutoRefreshUI() {
+  const btn = document.getElementById('btn-autorefresh-toggle');
+  const lbl = document.getElementById('autorefresh-label');
+  const icon = document.getElementById('autorefresh-icon');
+  const sel = document.getElementById('autorefresh-interval');
+  btn.classList.toggle('active', autoRefreshEnabled);
+  btn.style.color = autoRefreshEnabled ? 'var(--md-primary)' : 'var(--md-on-surface-variant)';
+  icon.style.color = autoRefreshEnabled ? 'var(--md-primary)' : 'var(--md-on-surface-variant)';
+  lbl.textContent = autoRefreshEnabled ? 'Auto' : 'Manual';
+  sel.style.opacity = autoRefreshEnabled ? '1' : '0.45';
+  sel.disabled = !autoRefreshEnabled;
+}
+async function postPollSettings() {
+  try {
+    await fetch('/api/camera/poll/settings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({enabled: autoRefreshEnabled, interval_sec: autoRefreshIntervalSec})
+    });
+  } catch (_) {}
+}
+async function loadPollSettings() {
+  try {
+    const res = await fetch('/api/camera/poll/settings');
+    if (!res.ok) return;
+    const s = await res.json();
+    autoRefreshEnabled = s.enabled;
+    autoRefreshIntervalSec = s.interval_sec;
+    const sel = document.getElementById('autorefresh-interval');
+    let best = null, bestDiff = Infinity;
+    for (const opt of sel.options) {
+      const diff = Math.abs(parseInt(opt.value, 10) - autoRefreshIntervalSec);
+      if (diff < bestDiff) { bestDiff = diff; best = opt.value; }
+    }
+    if (best) sel.value = best;
+    updateAutoRefreshUI();
+  } catch (_) {}
+}
+document.getElementById('btn-autorefresh-toggle').addEventListener('click', async () => {
+  autoRefreshEnabled = !autoRefreshEnabled;
+  updateAutoRefreshUI();
+  await postPollSettings();
+});
+document.getElementById('autorefresh-interval').addEventListener('change', async (e) => {
+  autoRefreshIntervalSec = parseInt(e.target.value, 10);
+  await postPollSettings();
+});
+document.getElementById('btn-refresh-now').addEventListener('click', async () => {
+  try { await fetch('/api/camera/poll/trigger', {method: 'POST'}); } catch (_) {}
+  fetchImages(); // also refresh UI immediately from HTTP in case WS push is delayed
+});
+updateAutoRefreshUI();
 </script>
 </body>
 </html>
