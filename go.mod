@@ -1,6 +1,6 @@
 module github.com/pacorreia/canon-proxy
 
-go 1.25.0
+go 1.26
 
 require (
 	cloud.google.com/go/storage v1.43.0
@@ -10,8 +10,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.21
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.102.2
 	github.com/glebarez/sqlite v1.11.0
+	github.com/gorilla/websocket v1.5.3
+	github.com/grandcat/zeroconf v1.0.0
 	github.com/hirochachacha/go-smb2 v1.1.0
-	github.com/jlaffaye/ftp v0.2.0
+	github.com/jlaffaye/ftp v0.2.1
 	google.golang.org/api v0.187.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.6.0
@@ -57,10 +59,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.5 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/grandcat/zeroconf v1.0.0 // indirect
-	github.com/hashicorp/errwrap v1.0.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.9.2 // indirect
