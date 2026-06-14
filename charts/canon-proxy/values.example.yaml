@@ -1,0 +1,164 @@
+# ---------------------------------------------------------------------------
+# Database backend.
+# ---------------------------------------------------------------------------
+# SQLite (default) — file stored on the PVC at the path given by dsn.
+database:
+  driver: sqlite
+  dsn: /data/canon-proxy.db
+  persistence:
+    enabled: true   # creates a PVC; set false when using postgres/mssql
+
+# Postgres example:
+# database:
+#   driver: postgres
+#   dsn: "host=postgres.db.svc port=5432 user=canon password=secret dbname=canon sslmode=disable"
+#   persistence:
+#     enabled: false  # no PVC needed
+
+# MS SQL / Azure SQL example:
+# database:
+#   driver: mssql
+#   dsn: "sqlserver://canon:secret@mssql.db.svc:1433?database=canon"
+#   persistence:
+#     enabled: false
+
+image:
+  repository: ghcr.io/pacorreia/canon-proxy
+  tag: ""               # defaults to Chart.AppVersion when empty
+  pullPolicy: IfNotPresent
+
+# Port the web UI listens on inside the container.
+web:
+  port: 9090
+
+# ---------------------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------------------
+# Option A: standard Kubernetes Ingress (nginx, traefik, etc.)
+ingress:
+  enabled: true
+  type: ingress
+  host: canon-proxy.example.com
+  className: nginx          # or "traefik", "haproxy", etc.
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    enabled: true
+    secretName: canon-proxy-tls
+
+# Option B: Traefik IngressRoute CRD
+# ingress:
+#   enabled: true
+#   type: ingressroute
+#   host: canon-proxy.example.com
+#   annotations: {}   # added to both IngressRoute objects
+#   ingressRoute:
+#     ingressClassName: ""      # Traefik v3+: name of the IngressClass (leave empty for default)
+#     tlsEntryPoints:           # entry point(s) for the HTTPS route
+#       - websecure
+#     httpEntryPoints:          # entry point(s) for the HTTP redirect route
+#       - web
+#     httpMiddlewares:
+#       - name: redirect-https
+#         namespace: traefik
+
+# ---------------------------------------------------------------------------
+# Persistent storage for the SQLite database.
+# ---------------------------------------------------------------------------
+persistence:
+  # -- Option A: let the chart create a PVC. --------------------------------
+  existingClaim: ""
+
+  size: 2Gi
+
+  # Storage class to request.
+  # Leave empty  → use the cluster default provisioner.
+  # Set to "-"   → no storageClassName (bind to a pre-provisioned static PV).
+  # Any string   → that specific class, e.g. "longhorn", "nfs-client", "ceph-block".
+  storageClassName: longhorn
+
+  accessModes:
+    - ReadWriteOnce
+
+  # Filesystem (default) or Block.
+  volumeMode: Filesystem
+
+  # Driver-specific PVC annotations.
+  # Longhorn example — enable recurring snapshot/backup jobs defined on the
+  # Longhorn recurring job group "default":
+  annotations:
+    recurring-job-group.longhorn.io/default: enabled
+
+  # Bind to a specific pre-provisioned PV by label.
+  selector: {}
+  # selector:
+  #   matchLabels:
+  #     app: canon-proxy-db
+
+  # -- Option B: use a pre-existing PVC. ------------------------------------
+  # When set, all fields above are ignored and no PVC is created.
+  # existingClaim: canon-proxy-data
+
+# ---------------------------------------------------------------------------
+# First-run seed values written to the database on initial startup.
+# Once settings are persisted in the DB these are ignored on subsequent boots.
+# ---------------------------------------------------------------------------
+camera:
+  host: "192.168.1.100"
+  port: 15740
+  pollInterval: "5s"
+  deleteAfterUpload: false
+
+upload:
+  workers: 1
+  # backend: smb | ftp | s3 | azure | gcs
+  backend: smb
+
+# Non-secret backend connection details.
+# Credentials (passwords, keys) go in the secret section below.
+backends:
+  smb:
+    host: "192.168.1.9"
+    share: "photos"
+    username: "mediauser"
+    path: ""            # destination path comes from pairings / manual upload
+  ftp:
+    host: "192.168.1.20"
+    port: 21
+    username: "ftpuser"
+    path: "/uploads"
+  s3:
+    region: "eu-west-1"
+    bucket: "my-camera-bucket"
+    prefix: "canon/"
+    accessKeyID: "YOUR_ACCESS_KEY_ID"
+  azure:
+    accountName: "mystorageaccount"
+    container: "photos"
+    prefix: ""
+  gcs:
+    bucket: "my-gcs-bucket"
+
+# Credentials stored in a Kubernetes Secret.
+# Only the fields relevant to your chosen backend need to be set.
+# Use existingSecret to reference a secret you manage separately (e.g. via
+# Sealed Secrets, External Secrets Operator, or Vault Agent).
+secret:
+  existingSecret: ""    # e.g. "canon-proxy-credentials"
+  smbPassword: ""
+  ftpPassword: ""
+  s3SecretKey: ""
+  azureSasToken: ""
+  gcsServiceAccountJSON: ""
+
+# Use the host network namespace. Required when the camera only accepts
+# PTP/IP connections from devices on the same subnet (no NAT traversal).
+# When true, dnsPolicy is automatically set to ClusterFirstWithHostNet.
+hostNetwork: false
+
+# Pin to a specific node, e.g. the node with the right network interface.
+nodeSelector:
+  kubernetes.io/hostname: my-node
+
+tolerations: []
+affinity: {}
