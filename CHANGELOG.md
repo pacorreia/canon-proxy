@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.2](https://github.com/pacorreia/canon-proxy/compare/v1.2.1...v1.2.2) (2026-06-14)
+
+
+### Bug Fixes
+
+* update Dockerfile Go image to 1.26-alpine to match go.mod requirement ([c0f8345](https://github.com/pacorreia/canon-proxy/commit/c0f83459aeae93b62de53e31c5cc626beb10021c))
+* update Dockerfile Go image to 1.26-alpine to match go.mod requirement ([7a0be11](https://github.com/pacorreia/canon-proxy/commit/7a0be11a2633173142bde581d98f6b52a47c0948))
+
 ## [1.2.1](https://github.com/pacorreia/canon-proxy/compare/v1.2.0...v1.2.1) (2026-06-14)
 
 
