@@ -117,6 +117,33 @@ func TestParsePTPUint32ArrayEmpty(t *testing.T) {
 	}
 }
 
+func TestParsePTPUint32Array_Truncated(t *testing.T) {
+	t.Parallel()
+	// count claims 5 elements but the buffer only contains 2 (4+8 bytes).
+	data := make([]byte, 4+2*4)
+	binary.LittleEndian.PutUint32(data[0:], 5)
+	if got := parsePTPUint32Array(data); got != nil {
+		t.Errorf("expected nil for truncated buffer, got %v", got)
+	}
+}
+
+func TestParsePTPUint32Array_HugeCount(t *testing.T) {
+	t.Parallel()
+	// count > maxSafeCount should be rejected without allocation.
+	data := make([]byte, 4)
+	binary.LittleEndian.PutUint32(data[0:], 1<<21) // 2 M > 1 M limit
+	if got := parsePTPUint32Array(data); got != nil {
+		t.Errorf("expected nil for huge count, got %v", got)
+	}
+}
+
+func TestParsePTPUint32Array_TooShortHeader(t *testing.T) {
+	t.Parallel()
+	if got := parsePTPUint32Array([]byte{0x01, 0x00}); got != nil {
+		t.Errorf("expected nil for 2-byte input, got %v", got)
+	}
+}
+
 func TestParsePTPString(t *testing.T) {
 	t.Parallel()
 
@@ -161,6 +188,47 @@ func TestParseObjectInfoFilename(t *testing.T) {
 	}
 	if info.filename != filename {
 		t.Errorf("filename = %q, want %q", info.filename, filename)
+	}
+}
+
+func TestParseObjectInfo_ShortData(t *testing.T) {
+	t.Parallel()
+
+	// Data shorter than 52 bytes: should still parse the format code but
+	// return an empty filename (no panic).
+	data := make([]byte, 30)
+	binary.LittleEndian.PutUint16(data[4:6], 0x3801) // EXIF/JPEG format
+	info := parseObjectInfo(data)
+	if info.format != 0x3801 {
+		t.Errorf("format = 0x%04X, want 0x3801", info.format)
+	}
+	if info.filename != "" {
+		t.Errorf("expected empty filename for truncated data, got %q", info.filename)
+	}
+}
+
+func TestParseObjectInfo_TinyData(t *testing.T) {
+	t.Parallel()
+	// Fewer than 6 bytes: should return zero value without panic.
+	info := parseObjectInfo([]byte{0x01, 0x02})
+	if info.format != 0 || info.filename != "" {
+		t.Errorf("expected zero value for tiny data, got %+v", info)
+	}
+}
+
+func TestSetClientGUID(t *testing.T) {
+	// Not parallel: modifies package-level state.
+	original := readClientGUID()
+	t.Cleanup(func() { SetClientGUID(original) }) // always restore
+
+	var want [16]byte
+	for i := range want {
+		want[i] = byte(i + 1)
+	}
+	SetClientGUID(want)
+	got := readClientGUID()
+	if got != want {
+		t.Errorf("readClientGUID after SetClientGUID: got %v, want %v", got, want)
 	}
 }
 

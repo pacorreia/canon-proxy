@@ -1,27 +1,116 @@
 package canon
 
+// discover.go — LAN discovery of Canon PTP/IP cameras via TCP port scan with
+// an ARP fast-path for already-known Canon devices, and passive mDNS advertisement
+// for the Camera Connect protocol.
+//
+// SSDP (UPnP) was removed: Canon cameras only broadcast SSDP during the EOS
+// Utility pairing wizard, making it unreliable once the camera is already paired.
+// TCP scanning is the reliable alternative.
+
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"net"
+	"os"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/grandcat/zeroconf"
+	"github.com/pacorreia/canon-proxy/internal/logger"
 )
 
 // DiscoveredCamera is a PTP/IP camera found on the LAN.
 type DiscoveredCamera struct {
 	IP   string `json:"ip"`
 	Port int    `json:"port"`
-	Name string `json:"name"` // friendly name from Init Command Ack, or IP if unavailable
+	Name string `json:"name"`
 }
 
-// DiscoverLAN probes all hosts on every local subnet for PTP/IP port 15740.
-// It respects ctx for cancellation. Concurrency controls how many parallel
-// TCP dials are in flight (default 64).
-func DiscoverLAN(ctx context.Context) ([]DiscoveredCamera, error) {
+// DiscoverOptions controls the behaviour of DiscoverLAN.
+// Reserved for future use; currently has no fields.
+type DiscoverOptions struct{}
+
+// DiscoverLAN finds Canon EOS cameras on the local network via TCP port scan
+// (port 15740). An ARP cache fast-path is tried first: if the OS already knows
+// the MAC address of a Canon device, only that host is probed.
+//
+// The TCP probe opens and immediately closes the connection — it does NOT send
+// any PTP/IP data, so it will not trigger a pairing dialog on the camera.
+func DiscoverLAN(ctx context.Context, _ DiscoverOptions) ([]DiscoveredCamera, error) {
+	return discoverTCP(ctx)
+}
+
+// canonOUIs contains known Canon Inc. MAC address OUI prefixes (first 3 bytes).
+// Canon cameras (EOS, PowerShot) use these prefixes on their WiFi interfaces.
+// Source: IEEE OUI registry + observed devices.
+var canonOUIs = []string{
+	"74bfc0", // Canon Inc. (EOS cameras, observed)
+	"e0b947", // Canon Inc.
+	"14c2ef", // Canon Inc.
+	"c80e77", // Canon Inc.
+	"fc256e", // Canon Inc.
+	"183452", // Canon Inc.
+	"2e5bc8", // Canon Inc.
+	"f40f24", // Canon Inc.
+}
+
+// discoverARP finds Canon cameras already in the ARP cache — fast, no scan needed.
+// Returns the IPs of any ARP entries whose MAC matches a known Canon OUI.
+func discoverARP() []string {
+	data, err := os.ReadFile("/proc/net/arp")
+	if err != nil {
+		return nil
+	}
+	var ips []string
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines[1:] { // skip header
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		ip := fields[0]
+		mac := strings.ToLower(strings.ReplaceAll(fields[3], ":", ""))
+		if mac == "000000000000" || len(mac) < 6 {
+			continue
+		}
+		for _, oui := range canonOUIs {
+			if strings.HasPrefix(mac, oui) {
+				logger.Debug("component=discover msg=\"ARP Canon device found\" ip=%s mac=%s", ip, mac)
+				ips = append(ips, ip)
+				break
+			}
+		}
+	}
+	return ips
+}
+
+// discoverTCP probes all hosts on every local subnet for PTP/IP port 15740.
+// It first checks the ARP cache for Canon OUI MACs (fast), then falls back
+// to probing all hosts on the subnet.
+func discoverTCP(ctx context.Context) ([]DiscoveredCamera, error) {
+	// Fast path: check ARP cache for Canon MACs already known to the OS.
+	arpIPs := discoverARP()
+	if len(arpIPs) > 0 {
+		logger.Debug("component=discover msg=\"ARP fast path\" candidates=%d", len(arpIPs))
+		var results []DiscoveredCamera
+		for _, ip := range arpIPs {
+			if cam, ok := probePTPIP(ctx, ip, 15740); ok {
+				results = append(results, cam)
+			}
+		}
+		if len(results) > 0 {
+			return results, nil
+		}
+	}
+
+	// Slow path: probe all hosts on the local subnet.
 	addrs, err := localSubnetHosts()
 	if err != nil {
-		return nil, fmt.Errorf("discover: enumerate subnets: %w", err)
+		return nil, fmt.Errorf("TCP scan: enumerate subnets: %w", err)
 	}
 
 	const workers = 64
@@ -108,8 +197,10 @@ func inc(ip net.IP) {
 	}
 }
 
-// probePTPIP tries to open a TCP connection to host:port and performs a minimal
-// PTP/IP Init Command Request handshake. Returns the camera name on success.
+// probePTPIP checks whether host:port accepts a TCP connection.
+// It does NOT send an InitCommandRequest — doing so would trigger a pairing
+// dialog on the camera screen. A plain TCP connect is sufficient to confirm
+// the camera is present and reachable.
 func probePTPIP(ctx context.Context, host string, port int) (DiscoveredCamera, bool) {
 	addr := fmt.Sprintf("%s:%d", host, port)
 	d := net.Dialer{Timeout: 800 * time.Millisecond}
@@ -117,94 +208,120 @@ func probePTPIP(ctx context.Context, host string, port int) (DiscoveredCamera, b
 	if err != nil {
 		return DiscoveredCamera{}, false
 	}
+	conn.Close()
+	return DiscoveredCamera{IP: host, Port: port, Name: host}, true
+}
+
+// ServiceTypeFromMAC converts a MAC address (any format with colons, dashes or
+// no separators) to the mDNS service type used by Canon Camera Connect.
+//
+// Canon EOS cameras store the paired phone's MAC during Bluetooth/WiFi pairing
+// and only respond to mDNS advertisements whose service type encodes that MAC.
+// Example: MAC "FC:9F:5E:D4:2C:8A" → service type "_FC9F5ED42C8A._tcp".
+func ServiceTypeFromMAC(mac string) string {
+	r := strings.NewReplacer(":", "", "-", "", ".", "")
+	clean := strings.ToUpper(r.Replace(mac))
+	return "_" + clean + "._tcp"
+}
+
+// AdvertiseAndWait advertises the proxy as a Camera Connect-compatible endpoint
+// via mDNS and waits for a Canon EOS camera to connect.
+//
+// Canon EOS cameras store the MAC address of the paired phone during initial
+// setup and only connect to an mDNS service whose type encodes that MAC
+// (e.g. "_FC9F5ED42C8A._tcp" for a phone with MAC FC:9F:5E:D4:2C:8A).
+// Use ServiceTypeFromMAC(phoneMACAddress) to build the correct service type.
+func AdvertiseAndWait(ctx context.Context, svcType string) (*DiscoveredCamera, error) {
+	if svcType == "" {
+		return nil, fmt.Errorf("advertise: svcType is required (use ServiceTypeFromMAC with the paired phone MAC)")
+	}
+
+	localIP, err := localOutboundIP()
+	if err != nil {
+		return nil, fmt.Errorf("advertise: resolve local IP: %w", err)
+	}
+
+	ln, err := net.Listen("tcp4", localIP.String()+":0")
+	if err != nil {
+		return nil, fmt.Errorf("advertise: TCP listen: %w", err)
+	}
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	instanceName := randomToken(9)
+	nonce := randomToken(18)
+	txtRecords := []string{
+		"f=5240",
+		"n=" + nonce,
+		"IPv4=" + localIP.String(),
+	}
+
+	server, err := zeroconf.Register(
+		instanceName,
+		svcType,
+		"local.",
+		port,
+		txtRecords,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("advertise: mDNS register: %w", err)
+	}
+	defer server.Shutdown()
+
+	logger.Info("component=discover msg=\"advertising for camera\" svc=%s ip=%s port=%d",
+		svcType, localIP, port)
+
+	type result struct {
+		conn net.Conn
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		conn, err := ln.Accept()
+		ch <- result{conn, err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case r := <-ch:
+		if r.err != nil {
+			return nil, fmt.Errorf("advertise: accept: %w", r.err)
+		}
+		defer r.conn.Close()
+		cameraIP := r.conn.RemoteAddr().(*net.TCPAddr).IP.String()
+		logger.Info("component=discover msg=\"camera connected\" ip=%s", cameraIP)
+
+		buf := make([]byte, 512)
+		r.conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+		n, _ := r.conn.Read(buf)
+		if n > 0 {
+			logger.Debug("component=discover msg=\"camera initial payload\" len=%d hex=%x", n, buf[:n])
+			fmt.Printf("Camera sent %d bytes: %x\n  text: %q\n", n, buf[:n], buf[:n])
+		}
+
+		return &DiscoveredCamera{
+			IP:   cameraIP,
+			Port: 15740,
+			Name: cameraIP,
+		}, nil
+	}
+}
+
+// localOutboundIP returns the local IP address used for outbound connections.
+func localOutboundIP() (net.IP, error) {
+	conn, err := net.Dial("udp4", "8.8.8.8:80")
+	if err != nil {
+		return nil, err
+	}
 	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(1 * time.Second))
-
-	// Send PTP/IP Init Command Request (type 0x01).
-	// Packet: length(4) + type(4) + GUID(16) + friendlyName(UTF-16LE, "canon-proxy\0") + version(4)
-	name := probeEncodeUTF16LE("canon-proxy")
-	pktLen := 4 + 4 + 16 + len(name) + 4
-	pkt := make([]byte, pktLen)
-	le := func(b []byte, off int, v uint32) { b[off] = byte(v); b[off+1] = byte(v >> 8); b[off+2] = byte(v >> 16); b[off+3] = byte(v >> 24) }
-	le(pkt, 0, uint32(pktLen))
-	le(pkt, 4, 0x01) // Init Command Request
-	copy(pkt[8:24], clientGUID[:])
-	copy(pkt[24:], name)
-	le(pkt, 24+len(name), 0x00010000) // version 1.0
-
-	if _, err := conn.Write(pkt); err != nil {
-		return DiscoveredCamera{}, false
-	}
-
-	// Read response header: length(4) + type(4).
-	hdr := make([]byte, 8)
-	if _, err := readFull(conn, hdr); err != nil {
-		// If we successfully connected and sent the PTP/IP Init Command Request
-		// but the camera closed/reset the connection (e.g. already paired to another
-		// client), it's still a PTP/IP camera — report it as busy.
-		return DiscoveredCamera{IP: host, Port: port, Name: host + " (in use)"}, true
-	}
-	respType := uint32(hdr[4]) | uint32(hdr[5])<<8 | uint32(hdr[6])<<16 | uint32(hdr[7])<<24
-	respLen := uint32(hdr[0]) | uint32(hdr[1])<<8 | uint32(hdr[2])<<16 | uint32(hdr[3])<<24
-
-	// 0x02 = Init Command Ack, 0x05 = Init Fail — both mean a PTP/IP camera responded.
-	if respType != 0x02 && respType != 0x05 {
-		return DiscoveredCamera{}, false
-	}
-
-	camName := host
-	// If Init Command Ack, try to parse the camera friendly name.
-	// Ack payload: GUID(16) + name(UTF-16LE) + version(4)
-	if respType == 0x02 && respLen > 28 {
-		payload := make([]byte, int(respLen)-8)
-		if _, err := readFull(conn, payload); err == nil && len(payload) > 16 {
-			camName = probeDecodeUTF16LE(payload[16:])
-			if camName == "" {
-				camName = host
-			}
-		}
-	}
-
-	return DiscoveredCamera{IP: host, Port: port, Name: camName}, true
+	return conn.LocalAddr().(*net.UDPAddr).IP, nil
 }
 
-func readFull(conn net.Conn, buf []byte) (int, error) {
-	total := 0
-	for total < len(buf) {
-		n, err := conn.Read(buf[total:])
-		total += n
-		if err != nil {
-			return total, err
-		}
-	}
-	return total, nil
-}
-
-func probeEncodeUTF16LE(s string) []byte {
-	runes := []rune(s + "\x00")
-	b := make([]byte, len(runes)*2)
-	for i, r := range runes {
-		b[i*2] = byte(r)
-		b[i*2+1] = byte(r >> 8)
-	}
-	return b
-}
-
-func probeDecodeUTF16LE(b []byte) string {
-	if len(b) < 2 {
-		return ""
-	}
-	u16 := make([]uint16, 0, len(b)/2)
-	for i := 0; i+1 < len(b); i += 2 {
-		v := uint16(b[i]) | uint16(b[i+1])<<8
-		if v == 0 {
-			break
-		}
-		u16 = append(u16, v)
-	}
-	runes := make([]rune, len(u16))
-	for i, v := range u16 {
-		runes[i] = rune(v)
-	}
-	return string(runes)
+// randomToken returns a URL-safe base64 random string of approximately n bytes of entropy.
+func randomToken(n int) string {
+	b := make([]byte, n)
+	rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
