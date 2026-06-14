@@ -41,7 +41,7 @@ ingress:
 # driver: sqlite (default) | postgres | mssql
 # For sqlite the DSN is a file path; persistence.* controls the PVC that holds it.
 # For postgres/mssql provide a full connection string and disable the PVC by
-# setting persistence.enabled: false.
+# setting database.persistence.enabled: false.
 database:
   driver: sqlite
   dsn: /data/canon-proxy.db
