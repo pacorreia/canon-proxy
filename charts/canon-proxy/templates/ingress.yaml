@@ -23,7 +23,7 @@ spec:
       {{- end }}
   {{- end }}
   rules:
-    - host: {{ .Values.ingress.host | quote }}
+    - host: {{ required "ingress.host is required when ingress.enabled=true" .Values.ingress.host | quote }}
       http:
         paths:
           - path: /
