@@ -51,8 +51,14 @@ func (b *GCSBackend) Name() string {
 	return "gcs"
 }
 
-func (b *GCSBackend) Upload(ctx context.Context, filename string, r io.Reader) error {
-	objectName := path.Join(b.prefix, filename)
+func (b *GCSBackend) Upload(ctx context.Context, filename, destPath string, r io.Reader) error {
+	var objectName string
+	if destPath != "" {
+		clean := strings.TrimPrefix(path.Clean("/"+destPath), "/")
+		objectName = path.Join(b.prefix, clean, filename)
+	} else {
+		objectName = path.Join(b.prefix, filename)
+	}
 
 	wc := b.client.Bucket(b.bucket).Object(objectName).NewWriter(ctx)
 	if _, err := io.Copy(wc, r); err != nil {

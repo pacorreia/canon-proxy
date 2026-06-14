@@ -39,6 +39,18 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Name of the PVC to mount for persistent data.
+Returns the existingClaim if set, otherwise the chart-managed PVC name.
+*/}}
+{{- define "canon-proxy.claimName" -}}
+{{- if .Values.persistence.existingClaim }}
+{{- .Values.persistence.existingClaim }}
+{{- else }}
+{{- include "canon-proxy.fullname" . }}-data
+{{- end }}
+{{- end }}
+
+{{/*
 Name of the Secret to use for backend credentials.
 */}}
 {{- define "canon-proxy.secretName" -}}

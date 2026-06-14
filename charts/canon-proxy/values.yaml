@@ -1,43 +1,82 @@
 image:
   repository: ghcr.io/pacorreia/canon-proxy
-  tag: latest
+  tag: ""
   pullPolicy: IfNotPresent
 
-# Web UI port
 web:
   port: 9090
 
 ingress:
   enabled: false
-  host: canon-proxy.example.com
+  # type: ingress | ingressroute
+  # "ingress"      — standard Kubernetes Ingress (nginx, traefik, etc.)
+  # "ingressroute" — Traefik CRD (IngressRoute)
+  type: ingress
+  host: ""
+  # ingressClassName for standard Ingress (e.g. "nginx", "traefik").
+  className: ""
+  # Extra annotations added to the Ingress/IngressRoute object.
+  annotations: {}
+  # TLS configuration for standard Ingress.
+  tls:
+    enabled: false
+    # Name of an existing TLS secret (cert-manager, manual, etc.).
+    secretName: ""
+  # Traefik IngressRoute-specific options (only used when type=ingressroute).
+  ingressRoute:
+    # Traefik ingressClassName (Traefik v3+). Leave empty to use the default Traefik instance.
+    ingressClassName: ""
+    # Entry point names for the HTTPS IngressRoute.
+    tlsEntryPoints:
+      - websecure
+    # Entry point names for the HTTP IngressRoute (used for redirect middleware).
+    httpEntryPoints:
+      - web
+    # Middlewares applied to the HTTP route.
+    httpMiddlewares: []
+    #  - name: redirect-https
+    #    namespace: traefik
 
-# Persistent storage for the SQLite database
-storage:
+# Database backend.
+# driver: sqlite (default) | postgres | mssql
+# For sqlite the DSN is a file path; persistence.* controls the PVC that holds it.
+# For postgres/mssql provide a full connection string and disable the PVC by
+# setting database.persistence.enabled: false.
+database:
+  driver: sqlite
+  dsn: /data/canon-proxy.db
+  # For postgres/mssql, set enabled: false — no PVC is needed.
+  persistence:
+    enabled: true
+
+
+
+persistence:
+  existingClaim: ""
   size: 1Gi
-  # Leave storageClassName empty to use the cluster default.
   storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  annotations: {}
+  selector: {}
 
-# First-run seed values written to the database on initial startup.
-# Once settings are stored in the DB these are ignored.
 camera:
-  host: "192.168.1.100"
+  host: ""
   port: 15740
   pollInterval: "5s"
   deleteAfterUpload: false
 
 upload:
   workers: 1
-  # backend: smb | ftp | s3 | azure | gcs
   backend: smb
 
-# Backend connection details — non-secret values.
-# Credentials (passwords, secret keys) go in the secret section below.
 backends:
   smb:
-    host: "192.168.1.9"
-    share: "photos"
-    username: "user"
-    path: "/uploads"
+    host: ""
+    share: ""
+    username: ""
+    path: ""
   ftp:
     host: ""
     port: 21
@@ -55,23 +94,13 @@ backends:
   gcs:
     bucket: ""
 
-# Credentials stored in a Kubernetes Secret.
-# All fields are optional — only those relevant to your chosen backend are used.
-# Set existingSecret to reference a pre-existing secret instead of creating one.
 secret:
   existingSecret: ""
   smbPassword: ""
   ftpPassword: ""
   s3SecretKey: ""
   azureSasToken: ""
-  # Path to a GCS service-account JSON file; mount it via extraVolumes if needed.
   gcsServiceAccountJSON: ""
-
-# hostNetwork gives the pod the node's network stack, which is required when the
-# Canon camera only accepts PTP/IP connections from hosts on its own subnet.
-# The container will appear to the camera with the node's LAN IP rather than
-# a pod/bridge IP.
-hostNetwork: false
 
 resources:
   requests:
@@ -80,6 +109,8 @@ resources:
   limits:
     cpu: 500m
     memory: 256Mi
+
+hostNetwork: false
 
 nodeSelector: {}
 tolerations: []

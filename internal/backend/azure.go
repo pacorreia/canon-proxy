@@ -48,8 +48,14 @@ func (b *AzureBackend) Name() string {
 
 func (b *AzureBackend) Close() error { return nil }
 
-func (b *AzureBackend) Upload(ctx context.Context, filename string, r io.Reader) error {
-	blobName := path.Join(b.prefix, filename)
+func (b *AzureBackend) Upload(ctx context.Context, filename, destPath string, r io.Reader) error {
+	var blobName string
+	if destPath != "" {
+		clean := strings.TrimPrefix(path.Clean("/"+destPath), "/")
+		blobName = path.Join(b.prefix, clean, filename)
+	} else {
+		blobName = path.Join(b.prefix, filename)
+	}
 
 	_, err := b.client.UploadStream(ctx, b.container, blobName, r, nil)
 	if err != nil {
