@@ -1,4 +1,4 @@
-{{- if .Values.ingress.enabled }}
+{{- if and .Values.ingress.enabled (eq .Values.ingress.type "ingressroute") }}
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -7,9 +7,16 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "canon-proxy.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
+  {{- if .Values.ingress.ingressRoute.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.ingressRoute.ingressClassName | quote }}
+  {{- end }}
   entryPoints:
-    - websecure
+    {{- toYaml .Values.ingress.ingressRoute.tlsEntryPoints | nindent 4 }}
   routes:
     - match: Host(`{{ .Values.ingress.host }}`)
       kind: Rule
@@ -26,14 +33,18 @@ metadata:
   labels:
     {{- include "canon-proxy.labels" . | nindent 4 }}
 spec:
+  {{- if .Values.ingress.ingressRoute.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.ingressRoute.ingressClassName | quote }}
+  {{- end }}
   entryPoints:
-    - web
+    {{- toYaml .Values.ingress.ingressRoute.httpEntryPoints | nindent 4 }}
   routes:
     - match: Host(`{{ .Values.ingress.host }}`)
       kind: Rule
+      {{- with .Values.ingress.ingressRoute.httpMiddlewares }}
       middlewares:
-        - name: redirect-https
-          namespace: traefik
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       services:
         - name: {{ include "canon-proxy.fullname" . }}
           port: http

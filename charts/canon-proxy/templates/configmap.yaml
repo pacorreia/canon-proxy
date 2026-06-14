@@ -8,8 +8,8 @@ metadata:
 data:
   config.yaml: |
     database:
-      driver: sqlite
-      dsn: /data/canon-proxy.db
+      driver: {{ .Values.database.driver | quote }}
+      dsn: {{ .Values.database.dsn | quote }}
 
     web:
       listen: ":{{ .Values.web.port }}"
