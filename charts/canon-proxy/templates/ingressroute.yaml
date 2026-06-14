@@ -39,7 +39,7 @@ spec:
   entryPoints:
     {{- toYaml .Values.ingress.ingressRoute.httpEntryPoints | nindent 4 }}
   routes:
-    - match: Host(`{{ .Values.ingress.host }}`)
+    - match: Host(`{{ required "ingress.host is required when ingress.enabled=true and ingress.type=ingressroute" .Values.ingress.host }}`)
       kind: Rule
       {{- with .Values.ingress.ingressRoute.httpMiddlewares }}
       middlewares:
