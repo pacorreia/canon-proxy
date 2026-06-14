@@ -1,3 +1,4 @@
+{{- if and .Values.database.persistence.enabled (not .Values.persistence.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -5,12 +6,24 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "canon-proxy.labels" . | nindent 4 }}
+  {{- with .Values.persistence.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   accessModes:
-    - ReadWriteOnce
-  {{- if .Values.storage.storageClassName }}
-  storageClassName: {{ .Values.storage.storageClassName | quote }}
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  volumeMode: {{ .Values.persistence.volumeMode }}
+  {{- if eq .Values.persistence.storageClassName "-" }}
+  storageClassName: ""
+  {{- else if .Values.persistence.storageClassName }}
+  storageClassName: {{ .Values.persistence.storageClassName | quote }}
+  {{- end }}
+  {{- with .Values.persistence.selector }}
+  selector:
+    {{- toYaml . | nindent 4 }}
   {{- end }}
   resources:
     requests:
-      storage: {{ .Values.storage.size }}
+      storage: {{ .Values.persistence.size }}
+{{- end }}

@@ -21,22 +21,37 @@ const (
 
 // Entry is the public representation of an image record.
 type Entry struct {
-	Filename    string     `json:"filename"`
-	URL         string     `json:"url"`
-	Status      Status     `json:"status"`
-	RetryCount  int        `json:"retry_count"`
-	Error       string     `json:"error,omitempty"`
-	DetectedAt  time.Time  `json:"detected_at"`
-	CapturedAt  *time.Time `json:"captured_at,omitempty"`
-	NextRetryAt *time.Time `json:"next_retry_at,omitempty"`
-	IsVideo     bool       `json:"is_video,omitempty"`
+	Filename      string     `json:"filename"`
+	URL           string     `json:"url"`
+	Status        Status     `json:"status"`
+	RetryCount    int        `json:"retry_count"`
+	Error         string     `json:"error,omitempty"`
+	DetectedAt    time.Time  `json:"detected_at"`
+	CapturedAt    *time.Time `json:"captured_at,omitempty"`
+	NextRetryAt   *time.Time `json:"next_retry_at,omitempty"`
+	IsVideo       bool       `json:"is_video,omitempty"`
+	CameraFolder  string     `json:"camera_folder,omitempty"`
+	DestPath      string     `json:"dest_path,omitempty"`
+	UploadSource  string     `json:"upload_source,omitempty"`
+	// UploadedBytes and TotalBytes are populated in-memory while status=="uploading".
+	// They are not persisted; zero means progress is unknown.
+	UploadedBytes int64      `json:"uploaded_bytes,omitempty"`
+	TotalBytes    int64      `json:"total_bytes,omitempty"`
+}
+
+// progressInfo holds in-flight upload byte counters (not persisted).
+type progressInfo struct {
+	uploaded int64
+	total    int64
 }
 
 // Store is the public façade over the DB image repository.
 type Store struct {
-	repo     *db.ImageRepo
-	mu       sync.RWMutex
-	onChange func()
+	repo        *db.ImageRepo
+	mu          sync.RWMutex
+	onChange    func()
+	progressMu  sync.RWMutex
+	progressMap map[string]*progressInfo // keyed by URL
 }
 
 // New returns a Store backed by the given ImageRepo.
@@ -62,16 +77,57 @@ func (s *Store) notify() {
 
 // Add inserts a new image (status=discovered) if it doesn't already exist.
 // Returns true if the entry was newly created.
-func (s *Store) Add(filename, url string, capturedAt *time.Time, isVideo bool) bool {
-	_, created, err := s.repo.FindOrCreate(filename, url, capturedAt, isVideo)
+func (s *Store) Add(filename, url, cameraFolder string, capturedAt *time.Time, isVideo bool) bool {
+	_, created, updated, err := s.repo.FindOrCreate(filename, url, cameraFolder, capturedAt, isVideo)
 	if err != nil {
 		logger.Error("component=store msg=\"Add failed\" file=%q url=%q err=%q", filename, url, err)
 		return false
 	}
-	if created {
+	if created || updated {
 		s.notify()
 	}
 	return created
+}
+
+// SetProgress records total byte count for an in-flight upload.
+func (s *Store) SetProgress(url string, total int64) {
+	s.progressMu.Lock()
+	if s.progressMap == nil {
+		s.progressMap = make(map[string]*progressInfo)
+	}
+	s.progressMap[url] = &progressInfo{total: total}
+	s.progressMu.Unlock()
+}
+
+// UpdateProgress adds delta bytes to the running counter for url, and
+// pushes a change notification every ~10% of completion.
+func (s *Store) UpdateProgress(url string, delta int64) {
+	s.progressMu.Lock()
+	var shouldNotify bool
+	if s.progressMap != nil {
+		if e, ok := s.progressMap[url]; ok {
+			prev := e.uploaded
+			e.uploaded += delta
+			if e.total > 0 {
+				prevPct := prev * 10 / e.total
+				currPct := e.uploaded * 10 / e.total
+				shouldNotify = currPct != prevPct
+			}
+		}
+	}
+	s.progressMu.Unlock()
+	if shouldNotify {
+		s.notify()
+	}
+}
+
+// ClearProgress removes progress tracking for url.
+func (s *Store) ClearProgress(url string) {
+	s.progressMu.Lock()
+	if s.progressMap != nil {
+		delete(s.progressMap, url)
+	}
+	s.progressMu.Unlock()
 }
 
 // List returns every image in insertion order.
@@ -81,7 +137,19 @@ func (s *Store) List() []Entry {
 		logger.Error("component=store msg=\"List failed\" err=%q", err)
 		return []Entry{}
 	}
-	return recsToEntries(recs)
+	entries := recsToEntries(recs)
+	// Merge in-flight upload progress into entries.
+	s.progressMu.RLock()
+	if len(s.progressMap) > 0 {
+		for i := range entries {
+			if p, ok := s.progressMap[entries[i].URL]; ok {
+				entries[i].UploadedBytes = p.uploaded
+				entries[i].TotalBytes = p.total
+			}
+		}
+	}
+	s.progressMu.RUnlock()
+	return entries
 }
 
 // GetByFilename returns the entry with the given filename, or nil if not found.
@@ -118,6 +186,19 @@ func (s *Store) MarkQueued(urls []string) {
 	}
 	if err := s.repo.MarkQueued(urls); err != nil {
 		logger.Error("component=store msg=\"MarkQueued failed\" err=%q", err)
+		return
+	}
+	s.notify()
+}
+
+// MarkQueuedWithMeta transitions discovered images to queued and writes an
+// explicit destPath and uploadSource onto each record.
+func (s *Store) MarkQueuedWithMeta(urls []string, destPath, uploadSource string) {
+	if len(urls) == 0 {
+		return
+	}
+	if err := s.repo.MarkQueuedWithMeta(urls, destPath, uploadSource); err != nil {
+		logger.Error("component=store msg=\"MarkQueuedWithMeta failed\" err=%q", err)
 		return
 	}
 	s.notify()
@@ -227,14 +308,17 @@ func recsToEntries(recs []db.ImageRecord) []Entry {
 
 func recToEntry(r db.ImageRecord) Entry {
 	return Entry{
-		Filename:    r.Filename,
-		URL:         r.URL,
-		Status:      r.Status,
-		RetryCount:  r.RetryCount,
-		Error:       r.LastError,
-		DetectedAt:  r.CreatedAt,
-		CapturedAt:  r.CapturedAt,
-		NextRetryAt: r.NextRetryAt,
-		IsVideo:     r.IsVideo,
+		Filename:     r.Filename,
+		URL:          r.URL,
+		Status:       r.Status,
+		RetryCount:   r.RetryCount,
+		Error:        r.LastError,
+		DetectedAt:   r.CreatedAt,
+		CapturedAt:   r.CapturedAt,
+		NextRetryAt:  r.NextRetryAt,
+		IsVideo:      r.IsVideo,
+		CameraFolder: r.CameraFolder,
+		DestPath:     r.DestPath,
+		UploadSource: r.UploadSource,
 	}
 }

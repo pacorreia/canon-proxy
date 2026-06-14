@@ -19,14 +19,17 @@ const (
 // ImageRecord is the GORM model for a camera image.
 type ImageRecord struct {
 	gorm.Model
-	Filename    string     `gorm:"uniqueIndex;not null"`
-	URL         string     `gorm:"uniqueIndex;not null"`
-	Status      string     `gorm:"not null;default:'discovered';index"`
-	RetryCount  int        `gorm:"default:0"`
-	LastError   string
-	NextRetryAt *time.Time `gorm:"index"`
-	CapturedAt  *time.Time `gorm:"index"` // PTP CaptureDate from camera; nil if not available
-	IsVideo     bool       `gorm:"default:false"` // true for MOV/MP4/etc.
+	Filename     string     `gorm:"uniqueIndex;not null"`
+	URL          string     `gorm:"uniqueIndex;not null"`
+	Status       string     `gorm:"not null;default:'discovered';index"`
+	RetryCount   int        `gorm:"default:0"`
+	LastError    string
+	NextRetryAt  *time.Time `gorm:"index"`
+	CapturedAt   *time.Time `gorm:"index"` // PTP CaptureDate from camera; nil if not available
+	IsVideo      bool       `gorm:"default:false"` // true for MOV/MP4/etc.
+	CameraFolder string     `gorm:"default:''"` // DCIM subfolder name (e.g. "100CANON"); empty for legacy records
+	DestPath     string     `gorm:"default:''"` // explicit upload destination; overrides pairing when set
+	UploadSource string     `gorm:"default:''"` // "auto" | "manual" | "" for legacy/undetermined
 }
 
 // ImageRepo handles CRUD operations for images.
@@ -40,26 +43,51 @@ func NewImageRepo(db *gorm.DB) *ImageRepo {
 }
 
 // FindOrCreate inserts a new image record if it doesn't already exist (by URL).
-// Returns the record and a boolean indicating whether it was newly created or reset
-// (e.g. when the camera reuses a handle/URL for a different file after delete-after-upload).
-func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, isVideo bool) (*ImageRecord, bool, error) {
+// Returns the record, a created flag (true when newly inserted or reset), an updated flag
+// (true when existing fields were backfilled), and any error.
+func (r *ImageRepo) FindOrCreate(filename, url, cameraFolder string, capturedAt *time.Time, isVideo bool) (*ImageRecord, bool, bool, error) {
 	var rec ImageRecord
-	result := r.db.Where("url = ?", url).First(&rec)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	// Use Find (not First) for the URL lookup so GORM does not log a spurious
+	// "record not found" warning for every new image — that is an expected condition.
+	var urlMatches []ImageRecord
+	if err := r.db.Where("url = ?", url).Limit(1).Find(&urlMatches).Error; err != nil {
+		return nil, false, false, err
+	}
+	if len(urlMatches) == 0 {
+		// URL not seen before. Check by filename: the camera may have assigned a new
+		// handle to an image we already know (e.g. card re-formatted, restart, or the
+		// same SD slot reused across power cycles).
+		var filenameMatches []ImageRecord
+		if err := r.db.Where("filename = ?", filename).Limit(1).Find(&filenameMatches).Error; err != nil {
+			return nil, false, false, err
+		}
+		if len(filenameMatches) > 0 {
+			// Same filename, different URL — update the stored URL so future URL
+			// lookups resolve correctly, then return the existing record unchanged.
+			rec = filenameMatches[0]
+			if err := r.db.Model(&rec).Update("url", url).Error; err != nil {
+				return nil, false, false, err
+			}
+			rec.URL = url
+			return &rec, false, false, nil
+		}
+		// Genuinely new — insert.
 		rec = ImageRecord{
-			Filename:   filename,
-			URL:        url,
-			Status:     StatusDiscovered,
-			CapturedAt: capturedAt,
-			IsVideo:    isVideo,
+			Filename:     filename,
+			URL:          url,
+			Status:       StatusDiscovered,
+			CapturedAt:   capturedAt,
+			IsVideo:      isVideo,
+			CameraFolder: cameraFolder,
 		}
 		if err := r.db.Create(&rec).Error; err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
-		return &rec, true, nil
+		return &rec, true, false, nil
 	}
-	if result.Error != nil {
-		return nil, false, result.Error
+	rec = urlMatches[0]
+	if rec.ID == 0 {
+		return nil, false, false, nil
 	}
 	// If the camera reuses a handle/URL (common after DeleteObject), treat it as a new image.
 	// We only reset terminal states (done/failed) to avoid interfering with images that are
@@ -75,7 +103,7 @@ func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, is
 			"is_video":      isVideo,
 		}
 		if err := r.db.Model(&rec).Updates(updates).Error; err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 		rec.Filename = filename
 		rec.Status = StatusDiscovered
@@ -84,9 +112,9 @@ func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, is
 		rec.NextRetryAt = nil
 		rec.CapturedAt = capturedAt
 		rec.IsVideo = isVideo
-		return &rec, true, nil
+		return &rec, true, false, nil
 	}
-	// Backfill CapturedAt if we now have it and the record doesn't.
+	// Backfill fields that are now known but were missing on the existing record.
 	updates := map[string]interface{}{}
 	if capturedAt != nil && rec.CapturedAt == nil {
 		updates["captured_at"] = capturedAt
@@ -94,9 +122,12 @@ func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, is
 	if isVideo && !rec.IsVideo {
 		updates["is_video"] = true
 	}
+	if cameraFolder != "" && rec.CameraFolder == "" {
+		updates["camera_folder"] = cameraFolder
+	}
 	if len(updates) > 0 {
 		if err := r.db.Model(&rec).Updates(updates).Error; err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 		if capturedAt != nil {
 			rec.CapturedAt = capturedAt
@@ -104,8 +135,12 @@ func (r *ImageRepo) FindOrCreate(filename, url string, capturedAt *time.Time, is
 		if isVideo {
 			rec.IsVideo = true
 		}
+		if cameraFolder != "" {
+			rec.CameraFolder = cameraFolder
+		}
+		return &rec, false, true, nil
 	}
-	return &rec, false, nil
+	return &rec, false, false, nil
 }
 
 // List returns all images in insertion order.
@@ -190,14 +225,32 @@ func (r *ImageRepo) MarkQueued(urls []string) error {
 		}).Error
 }
 
+// MarkQueuedWithMeta transitions discovered images to queued and records an
+// explicit destination path and upload source ("auto" or "manual").
+// Each URL in urls must belong to a discovered image; others are silently skipped.
+func (r *ImageRepo) MarkQueuedWithMeta(urls []string, destPath, uploadSource string) error {
+	updates := map[string]interface{}{
+		"status":        StatusQueued,
+		"retry_count":   0,
+		"last_error":    "",
+		"dest_path":     destPath,
+		"upload_source": uploadSource,
+	}
+	return r.db.Model(&ImageRecord{}).
+		Where("url IN ? AND status = ?", urls, StatusDiscovered).
+		Updates(updates).Error
+}
+
 // MarkAllDiscoveredQueued queues every image that is still in "discovered" status.
+// All records are tagged with upload_source="manual" since this is always a user-initiated action.
 func (r *ImageRepo) MarkAllDiscoveredQueued() (int64, error) {
 	result := r.db.Model(&ImageRecord{}).
 		Where("status = ?", StatusDiscovered).
 		Updates(map[string]interface{}{
-			"status":      StatusQueued,
-			"retry_count": 0,
-			"last_error":  "",
+			"status":        StatusQueued,
+			"retry_count":   0,
+			"last_error":    "",
+			"upload_source": "manual",
 		})
 	return result.RowsAffected, result.Error
 }

@@ -28,13 +28,15 @@ func Open(driver, dsn string) (*gorm.DB, error) {
 	}
 
 	db, err := gorm.Open(dialector, &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
+		// Silent suppresses the per-query "record not found" warnings that GORM
+		// emits for First() misses; application-level code handles those via errors.Is.
+		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	if err := db.AutoMigrate(&ImageRecord{}, &SettingRecord{}); err != nil {
+	if err := db.AutoMigrate(&ImageRecord{}, &SettingRecord{}, &FolderPairingRecord{}); err != nil {
 		return nil, fmt.Errorf("migrate database: %w", err)
 	}
 

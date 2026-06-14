@@ -3,6 +3,7 @@ package canon
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pacorreia/canon-proxy/internal/logger"
@@ -22,6 +23,7 @@ const maxSeenImages = 50_000
 type Poller struct {
 	client   *Client
 	interval time.Duration
+	autoEnabled bool
 
 	mu            sync.Mutex
 	seen          map[string]struct{} // URL → already emitted
@@ -29,6 +31,11 @@ type Poller struct {
 	imageHandles  map[uint32]struct{} // handle → known image (skip GetObjectInfo)
 	folderHandles map[uint32]struct{} // handle → known folder (always recurse)
 	initialDone   bool                // true after first successful full scan
+
+	triggerCh chan struct{} // manual poll trigger (buffered 1)
+	configCh  chan struct{} // interval/enabled changed (buffered 1)
+
+	cameraConnected atomic.Bool // true after a successful pollOnce
 }
 
 // NewPoller creates a Poller that polls the camera at the given interval.
@@ -39,10 +46,65 @@ func NewPoller(client *Client, interval time.Duration) *Poller {
 	return &Poller{
 		client:        client,
 		interval:      interval,
+		autoEnabled:   true,
 		seen:          make(map[string]struct{}),
 		imageHandles:  make(map[uint32]struct{}),
 		folderHandles: make(map[uint32]struct{}),
+		triggerCh:     make(chan struct{}, 1),
+		configCh:      make(chan struct{}, 1),
 	}
+}
+
+// TriggerNow forces an immediate poll without waiting for the next scheduled interval.
+func (p *Poller) TriggerNow() {
+	select {
+	case p.triggerCh <- struct{}{}:
+	default:
+	}
+}
+
+// SetEnabled enables or disables automatic periodic polling.
+func (p *Poller) SetEnabled(v bool) {
+	p.mu.Lock()
+	p.autoEnabled = v
+	p.mu.Unlock()
+	select {
+	case p.configCh <- struct{}{}:
+	default:
+	}
+}
+
+// SetInterval changes the automatic polling interval dynamically.
+func (p *Poller) SetInterval(d time.Duration) {
+	if d < time.Second {
+		d = time.Second
+	}
+	p.mu.Lock()
+	p.interval = d
+	p.mu.Unlock()
+	select {
+	case p.configCh <- struct{}{}:
+	default:
+	}
+}
+
+// CameraConnected reports whether the last poll attempt succeeded.
+func (p *Poller) CameraConnected() bool {
+	return p.cameraConnected.Load()
+}
+
+// AutoEnabled reports whether automatic periodic polling is enabled.
+func (p *Poller) AutoEnabled() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.autoEnabled
+}
+
+// Interval returns the current automatic polling interval.
+func (p *Poller) Interval() time.Duration {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.interval
 }
 
 // EvictHandle removes a handle from the image cache so it can be re-discovered.
@@ -68,8 +130,29 @@ func (p *Poller) Run(ctx context.Context) <-chan Image {
 
 		const maxErrBackoff = 60 * time.Second
 		errBackoff := time.Duration(0)
-		ticker := time.NewTicker(p.interval)
+
+		p.mu.Lock()
+		curInterval := p.interval
+		curEnabled := p.autoEnabled
+		p.mu.Unlock()
+
+		ticker := time.NewTicker(curInterval)
+		if !curEnabled {
+			ticker.Stop()
+		}
 		defer ticker.Stop()
+
+		// resetTicker reads the latest config and resets the ticker accordingly.
+		resetTicker := func() {
+			p.mu.Lock()
+			curInterval = p.interval
+			curEnabled = p.autoEnabled
+			p.mu.Unlock()
+			ticker.Stop()
+			if curEnabled {
+				ticker.Reset(curInterval)
+			}
+		}
 
 		for {
 			// Wait out any error back-off before the next attempt.
@@ -79,6 +162,8 @@ func (p *Poller) Run(ctx context.Context) <-chan Image {
 				case <-ctx.Done():
 					return
 				case <-time.After(errBackoff):
+				case <-p.triggerCh:
+					// manual trigger overrides back-off
 				}
 			}
 
@@ -92,15 +177,26 @@ func (p *Poller) Run(ctx context.Context) <-chan Image {
 						errBackoff = maxErrBackoff
 					}
 				}
+				logger.Warn("component=poller msg=\"poll failed\" backoff=%s", errBackoff)
 				continue // skip the normal interval wait; errBackoff handles pacing
 			}
 
-			// Successful poll — reset error back-off and wait for the normal interval.
+			// Successful poll — reset error back-off and wait for the next trigger.
 			errBackoff = 0
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
+			resetTicker()
+
+		waitNext:
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					break waitNext
+				case <-p.triggerCh:
+					break waitNext
+				case <-p.configCh:
+					resetTicker() // apply new interval/enabled; stay in wait loop
+				}
 			}
 		}
 	}()
@@ -125,6 +221,12 @@ func (p *Poller) pollOnce(ctx context.Context, out chan<- Image) error {
 	}
 	p.mu.Unlock()
 
+	mode := "delta"
+	if !initialDone {
+		mode = "full"
+	}
+	logger.Info("component=poller msg=\"poll started\" mode=%s known_images=%d", mode, len(knownImg))
+
 	var (
 		images     []Image
 		newFolders map[uint32]struct{}
@@ -144,9 +246,11 @@ func (p *Poller) pollOnce(ctx context.Context, out chan<- Image) error {
 		if ctx.Err() != nil {
 			return nil // context cancelled, not a camera error
 		}
+		p.cameraConnected.Store(false)
 		logger.Error("component=poller msg=\"failed to list images\" err=%q", err)
 		return err
 	}
+	p.cameraConnected.Store(true)
 
 	p.mu.Lock()
 	if !p.initialDone {
@@ -175,6 +279,11 @@ func (p *Poller) pollOnce(ctx context.Context, out chan<- Image) error {
 			oldest := p.seenKeys[0]
 			p.seenKeys = p.seenKeys[1:]
 			delete(p.seen, oldest)
+			// Also evict the handle so the delta scan can rediscover it
+			// if the URL ever reappears (e.g. camera power-cycled).
+			if h, herr := parseHandle(oldest); herr == nil {
+				delete(p.imageHandles, h)
+			}
 		}
 		p.mu.Unlock()
 
@@ -185,6 +294,9 @@ func (p *Poller) pollOnce(ctx context.Context, out chan<- Image) error {
 		}
 	}
 
+	if !initialDone || len(images) > 0 {
+		logger.Info("component=poller msg=\"poll complete\" mode=%s new=%d", map[bool]string{true: "delta", false: "full"}[initialDone], len(images))
+	}
 	return nil
 }
 
