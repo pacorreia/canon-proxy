@@ -131,7 +131,7 @@ backends:
     region: "eu-west-1"
     bucket: "my-camera-bucket"
     prefix: "canon/"
-    accessKeyID: "AKIAIOSFODNN7EXAMPLE"
+    accessKeyID: "YOUR_ACCESS_KEY_ID"
   azure:
     accountName: "mystorageaccount"
     container: "photos"
