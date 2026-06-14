@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/pacorreia/canon-proxy/compare/v1.2.0...v1.2.1) (2026-06-14)
+
+
+### Bug Fixes
+
+* Merge pull request [#33](https://github.com/pacorreia/canon-proxy/issues/33) from pacorreia/dependabot/go_modules/github.com/aws/aws-sdk-go-v2/service/s3-1.103.2 ([e1d712a](https://github.com/pacorreia/canon-proxy/commit/e1d712ac216ea1aa965fa147295d5e952280443a))
+
 ## [1.2.0](https://github.com/pacorreia/canon-proxy/compare/v1.1.0...v1.2.0) (2026-06-04)
 
 
