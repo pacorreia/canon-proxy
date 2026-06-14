@@ -32,6 +32,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "canon-proxy.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   {{- if .Values.ingress.ingressRoute.ingressClassName }}
   ingressClassName: {{ .Values.ingress.ingressRoute.ingressClassName | quote }}
