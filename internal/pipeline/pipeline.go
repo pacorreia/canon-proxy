@@ -1,13 +1,16 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
 	"github.com/pacorreia/canon-proxy/internal/backend"
 	"github.com/pacorreia/canon-proxy/internal/canon"
+	"github.com/pacorreia/canon-proxy/internal/db"
 	"github.com/pacorreia/canon-proxy/internal/logger"
 	"github.com/pacorreia/canon-proxy/internal/store"
 )
@@ -31,7 +34,9 @@ type Pipeline struct {
 	backend            backend.Backend
 	workers            int
 	store              *store.Store
+	pairingRepo        *db.FolderPairingRepo
 	pushCh             chan canon.Image
+	inChannel          sync.Map // tracks URLs currently sitting in pushCh
 	deleteAfterUpload  bool
 
 	gateMu sync.Mutex
@@ -41,7 +46,9 @@ type Pipeline struct {
 
 // NewManual creates a Pipeline in queue mode.
 // Set deleteAfterUpload=true to delete each image from the camera after a successful upload.
-func NewManual(client *canon.Client, poller *canon.Poller, b backend.Backend, workers int, st *store.Store, deleteAfterUpload bool) *Pipeline {
+// pairingRepo may be nil; when non-nil it is used to resolve camera-folder → share-path
+// mappings so each image is uploaded to its paired destination rather than the global base path.
+func NewManual(client *canon.Client, poller *canon.Poller, b backend.Backend, workers int, st *store.Store, pairingRepo *db.FolderPairingRepo, deleteAfterUpload bool) *Pipeline {
 	if workers <= 0 {
 		workers = 1
 	}
@@ -53,6 +60,7 @@ func NewManual(client *canon.Client, poller *canon.Poller, b backend.Backend, wo
 		backend:           b,
 		workers:           workers,
 		store:             st,
+		pairingRepo:       pairingRepo,
 		pushCh:            make(chan canon.Image, pushChanCapacity),
 		deleteAfterUpload: deleteAfterUpload,
 		gate:              openGate,
@@ -89,11 +97,11 @@ func (p *Pipeline) IsPaused() bool {
 func (p *Pipeline) ClearQueue() int {
 	// Reset all DB-queued records first so the retryScheduler doesn't re-enqueue them.
 	n := int(p.store.ResetQueued())
-	// Also drain any items already sitting in the channel (they may have been set to
-	// "uploading" by Queue(); reset them to "discovered" as well).
+	// Drain items sitting in the channel and clear their inChannel tracking.
 	for {
 		select {
 		case img := <-p.pushCh:
+			p.inChannel.Delete(img.URL)
 			p.store.SetStatus(img.URL, store.StatusDiscovered, "")
 			n++
 		default:
@@ -112,12 +120,15 @@ func (p *Pipeline) Queue(images []canon.Image) {
 		return
 	}
 	for _, img := range images {
-		p.store.SetStatus(img.URL, store.StatusUploading, "")
+		if _, loaded := p.inChannel.LoadOrStore(img.URL, true); loaded {
+			continue // already in channel, skip duplicate
+		}
 		select {
 		case p.pushCh <- img:
+			// item is in channel; status stays "queued" until the worker picks it up
 		default:
+			p.inChannel.Delete(img.URL)
 			logger.Warn("component=pipeline msg=\"push channel full\" file=%q", img.Filename)
-			p.store.SetStatus(img.URL, store.StatusQueued, "channel full")
 		}
 	}
 }
@@ -132,8 +143,16 @@ func (p *Pipeline) Run(ctx context.Context) error {
 
 	go func() {
 		for img := range polledCh {
-			if added := p.store.Add(img.Filename, img.URL, img.CapturedAt, img.IsVideo); added {
+			if added := p.store.Add(img.Filename, img.URL, img.CameraFolder, img.CapturedAt, img.IsVideo); added {
 				logger.Info("component=pipeline msg=\"image discovered\" file=%q", img.Filename)
+				// If the camera folder has an auto-upload pairing, queue the image immediately.
+				if p.pairingRepo != nil && img.CameraFolder != "" {
+					if rec, ok := p.pairingRepo.FindByFolder(img.CameraFolder); ok && rec.AutoUpload {
+						logger.Info("component=pipeline msg=\"auto-queuing\" file=%q folder=%q dest=%q", img.Filename, img.CameraFolder, rec.SharePath)
+						p.store.MarkQueuedWithMeta([]string{img.URL}, rec.SharePath, "auto")
+						p.Queue([]canon.Image{img})
+					}
+				}
 			}
 		}
 	}()
@@ -156,10 +175,11 @@ func (p *Pipeline) Run(ctx context.Context) error {
 					if !ok {
 						return
 					}
+					p.inChannel.Delete(img.URL)
 					// Re-check the gate after dequeueing: if Pause() was called
 					// while this worker was blocking on pushCh, re-queue the image
 					// so that ClearQueue() can drain/reset it instead of leaving it
-					// stuck in "uploading" while this worker blocks.
+					// blocked while this worker is paused.
 					if p.IsPaused() {
 						p.store.SetStatus(img.URL, store.StatusQueued, "paused")
 						continue
@@ -168,6 +188,9 @@ func (p *Pipeline) Run(ctx context.Context) error {
 						p.store.SetStatus(img.URL, store.StatusQueued, "context cancelled")
 						return
 					}
+					// Mark as uploading only now — the item was "queued" while
+					// waiting in the channel; "uploading" means actively in-flight.
+					p.store.SetStatus(img.URL, store.StatusUploading, "")
 					if err := p.processImage(ctx, img, id); err != nil {
 						logger.Error("component=pipeline worker=%d msg=\"process error\" file=%q err=%q", id, img.Filename, err)
 					}
@@ -193,17 +216,18 @@ func (p *Pipeline) retryScheduler(ctx context.Context) {
 			}
 			todo := append(p.store.AllFreshQueued(), p.store.ListReadyToRetry()...)
 			for _, e := range todo {
-				// Mark as uploading before pushing to pushCh so that the record
-				// is not picked up again on the next scheduler tick (which would
-				// cause duplicate uploads if the tick fires before the worker drains).
-				p.store.SetStatus(e.URL, store.StatusUploading, "")
+				// Use inChannel to prevent duplicate pushes across scheduler ticks.
+				// Status stays as-is ("queued" or "failed") until the worker dequeues.
+				if _, loaded := p.inChannel.LoadOrStore(e.URL, true); loaded {
+					continue // already in channel
+				}
 				img := canon.Image{Filename: e.Filename, URL: e.URL}
 				select {
 				case p.pushCh <- img:
 					logger.Info("component=pipeline msg=\"enqueued\" file=%q retry_count=%d", e.Filename, e.RetryCount)
 				default:
-					// Channel full: revert to queued so the scheduler retries next tick.
-					p.store.SetStatus(e.URL, store.StatusQueued, "channel full")
+					// Channel full; clear inChannel so the scheduler retries next tick.
+					p.inChannel.Delete(e.URL)
 				}
 			}
 		}
@@ -220,17 +244,51 @@ func (p *Pipeline) processImage(ctx context.Context, img canon.Image, workerID i
 	retryCount := 0
 	if entry != nil {
 		retryCount = entry.RetryCount
+		// If CameraFolder was not set on the Image (e.g. from retryScheduler), recover it from the DB.
+		if img.CameraFolder == "" {
+			img.CameraFolder = entry.CameraFolder
+		}
+	}
+
+	// Resolve upload destination. Priority:
+	//   1. Explicit dest_path written to the DB at queue time (manual upload or auto-queue)
+	//   2. Pairing lookup by camera folder (for legacy queued items without an explicit path)
+	//   3. Empty — use the backend's configured base path.
+	destPath := ""
+	if entry != nil && entry.DestPath != "" {
+		destPath = entry.DestPath
+	} else if p.pairingRepo != nil && img.CameraFolder != "" {
+		if rec, ok := p.pairingRepo.FindByFolder(img.CameraFolder); ok {
+			destPath = rec.SharePath
+			logger.Info("component=pipeline worker=%d msg=\"pairing resolved\" folder=%q dest=%q", workerID, img.CameraFolder, destPath)
+		}
 	}
 
 	rc, err := p.client.DownloadImage(ctx, img)
 	if err != nil {
 		return p.handleFailure(img, retryCount, fmt.Errorf("download: %w", err))
 	}
-	defer rc.Close()
 
-	if err := p.backend.Upload(ctx, img.Filename, rc); err != nil {
+	// Buffer the download to know the total size for progress tracking.
+	// DownloadImage already holds the full image in memory, so this is a
+	// zero-cost copy into a bytes.Reader.
+	data, readErr := io.ReadAll(rc)
+	rc.Close()
+	if readErr != nil {
+		return p.handleFailure(img, retryCount, fmt.Errorf("download: read: %w", readErr))
+	}
+
+	p.store.SetProgress(img.URL, int64(len(data)))
+	pr := &progressReader{
+		r:      bytes.NewReader(data),
+		onRead: func(n int64) { p.store.UpdateProgress(img.URL, n) },
+	}
+
+	if err := p.backend.Upload(ctx, img.Filename, destPath, pr); err != nil {
+		p.store.ClearProgress(img.URL)
 		return p.handleFailure(img, retryCount, fmt.Errorf("upload: %w", err))
 	}
+	p.store.ClearProgress(img.URL)
 
 	p.store.SetStatus(img.URL, store.StatusDone, "")
 	logger.Info("component=pipeline worker=%d msg=\"uploaded\" file=%q backend=%q", workerID, img.Filename, p.backend.Name())
@@ -271,4 +329,19 @@ func (p *Pipeline) awaitGate(ctx context.Context) bool {
 	case <-ch:
 		return true
 	}
+}
+
+// progressReader wraps an io.Reader and calls onRead with the number of bytes
+// read on each successful Read call, enabling upload progress tracking.
+type progressReader struct {
+	r      io.Reader
+	onRead func(int64)
+}
+
+func (pr *progressReader) Read(p []byte) (int, error) {
+	n, err := pr.r.Read(p)
+	if n > 0 {
+		pr.onRead(int64(n))
+	}
+	return n, err
 }

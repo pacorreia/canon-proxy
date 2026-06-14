@@ -55,8 +55,14 @@ func (b *S3Backend) Name() string {
 
 func (b *S3Backend) Close() error { return nil }
 
-func (b *S3Backend) Upload(ctx context.Context, filename string, r io.Reader) error {
-	key := path.Join(b.prefix, filename)
+func (b *S3Backend) Upload(ctx context.Context, filename, destPath string, r io.Reader) error {
+	var key string
+	if destPath != "" {
+		clean := strings.TrimPrefix(path.Clean("/"+destPath), "/")
+		key = path.Join(b.prefix, clean, filename)
+	} else {
+		key = path.Join(b.prefix, filename)
+	}
 
 	_, err := b.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(b.bucket),
