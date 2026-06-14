@@ -151,6 +151,11 @@ secret:
   azureSasToken: ""
   gcsServiceAccountJSON: ""
 
+# Use the host network namespace. Required when the camera only accepts
+# PTP/IP connections from devices on the same subnet (no NAT traversal).
+# When true, dnsPolicy is automatically set to ClusterFirstWithHostNet.
+hostNetwork: false
+
 # Pin to a specific node, e.g. the node with the right network interface.
 nodeSelector:
   kubernetes.io/hostname: my-node
