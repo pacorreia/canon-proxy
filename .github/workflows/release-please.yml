@@ -134,7 +134,7 @@ jobs:
             ./cmd/canon-proxy
 
       - name: Upload asset to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.get-tag.outputs.tag_name }}
           files: dist/canon-proxy-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
@@ -221,7 +221,7 @@ jobs:
             oci://ghcr.io/${{ github.repository_owner }}/charts
 
       - name: Upload chart to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.get-tag.outputs.tag_name }}
           files: dist/canon-proxy-${{ needs.get-tag.outputs.version }}.tgz
