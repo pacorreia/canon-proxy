@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/pacorreia/canon-proxy/compare/v1.3.0...v1.3.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* Bump github.com/aws/aws-sdk-go-v2/config from 1.32.25 to 1.33.3 ([df43817](https://github.com/pacorreia/canon-proxy/commit/df4381739e7468187e1eb867aca72869d1e72c41))
+
 ## [1.3.0](https://github.com/pacorreia/canon-proxy/compare/v1.2.2...v1.3.0) (2026-06-14)
 
 
