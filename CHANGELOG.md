@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/pacorreia/canon-proxy/compare/v1.4.0...v1.4.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* Merge pull request [#69](https://github.com/pacorreia/canon-proxy/issues/69) from pacorreia/dependabot/go_modules/go_modules-ef8c930ea6 ([ff07ef9](https://github.com/pacorreia/canon-proxy/commit/ff07ef97be5e9ac4fe4cd0667275c8f6b0df2a73))
+
 ## [1.4.0](https://github.com/pacorreia/canon-proxy/compare/v1.3.1...v1.4.0) (2026-09-28)
 
 
