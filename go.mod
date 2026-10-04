@@ -13,7 +13,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/hirochachacha/go-smb2 v1.1.0
-	github.com/jlaffaye/ftp v0.2.1
+	github.com/jlaffaye/ftp v0.2.4
 	google.golang.org/api v0.299.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.6.0
