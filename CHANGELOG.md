@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.2](https://github.com/pacorreia/canon-proxy/compare/v1.4.1...v1.4.2) (2026-11-15)
+
+
+### Bug Fixes
+
+* Merge pull request [#93](https://github.com/pacorreia/canon-proxy/issues/93) from pacorreia/fix/aikido-security-update-packages-182558964-m4fr ([b3d75e2](https://github.com/pacorreia/canon-proxy/commit/b3d75e2ef65209c0e74b4b20a6e78739e8232a52))
+* Merge pull request [#95](https://github.com/pacorreia/canon-proxy/issues/95) from pacorreia/fix/aikido-security-container-fix-182774130-5hju ([4e2e508](https://github.com/pacorreia/canon-proxy/commit/4e2e508734f15df9f89611d6a42911d9d1f2884e))
+* **security:** container autofix for canon-proxy ([505446e](https://github.com/pacorreia/canon-proxy/commit/505446ef7823d9b89c2b0367586d5d081c107ace))
+* **security:** Update dependencies ([d2d48d0](https://github.com/pacorreia/canon-proxy/commit/d2d48d063c2545c80e79ab527f32cf66126c2278))
+
 ## [1.4.1](https://github.com/pacorreia/canon-proxy/compare/v1.4.0...v1.4.1) (2026-09-28)
 
 
